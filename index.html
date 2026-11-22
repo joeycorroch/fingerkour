@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="theme-color" content="#120c18">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Fingerkour</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
 <style>
@@ -136,6 +136,7 @@ body.pad .cb{display:none}
       <button class="btn gray small" id="muteBtn">SOUND: ON</button>
       <button class="btn gray small" id="musicBtn">MUSIC: ON</button>
       <button class="btn gray small" id="introBtn">▶ INTRO</button>
+      <button class="btn gray small fsb" id="fsBtn">⛶ FULL SCREEN</button>
     </div>
     <div class="sub" id="titleStats"></div>
   </div>
@@ -193,6 +194,7 @@ body.pad .cb{display:none}
     <div class="panel">
       <div class="h">PAUSED</div>
       <button class="btn" id="resumeBtn">RESUME</button>
+      <button class="btn gray small fsb" id="fsBtn2">⛶ FULL SCREEN</button>
       <button class="btn gray small" data-go="title">QUIT</button>
     </div>
   </div>
@@ -1786,7 +1788,15 @@ function renderLocker(){const el=$('opts');el.innerHTML='';const em=store.get('e
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{audio();const g=b.dataset.go;
  if(g==='endless'){lastMode=['endless',0];play('endless')}else if(g==='trips'){if(state!=='title')toTitle();renderTrips();show('sTrips')}
  else if(g==='locker'){renderLocker();show('sLocker')}else if(g==='scores'){renderScores();show('sScores')}else if(g==='help')show('sHelp');else toTitle()}));
-$('startBtn').onclick=()=>startIntro();$('skipBtn').onclick=()=>endIntro();$('introBtn').onclick=()=>startIntro();
+const FS={el:document.documentElement};FS.ok=!!(FS.el.requestFullscreen||FS.el.webkitRequestFullscreen);
+function isFull(){return !!(document.fullscreenElement||document.webkitFullscreenElement)}
+function goFull(){if(!FS.ok||isFull())return;const rf=FS.el.requestFullscreen||FS.el.webkitRequestFullscreen;try{const p=rf.call(FS.el,{navigationUI:'hide'});const lock=()=>{try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})}catch(e){}};if(p&&p.then)p.then(lock).catch(()=>{});else lock()}catch(e){}}
+function exitFull(){try{(document.exitFullscreen||document.webkitExitFullscreen).call(document)}catch(e){}}
+function fsLabel(){document.querySelectorAll('.fsb').forEach(b=>{b.style.display=FS.ok?'':'none';b.textContent=isFull()?'⤢ EXIT FULL SCREEN':'⛶ FULL SCREEN'})}
+document.querySelectorAll('.fsb').forEach(b=>b.onclick=()=>{audio();isFull()?exitFull():goFull()});
+['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{fsLabel();setTimeout(layout,60);setTimeout(layout,400)}));
+addEventListener('keydown',e=>{if(e.code==='KeyF'&&!(NE&&!NE.saved)){isFull()?exitFull():goFull()}});
+$('startBtn').onclick=()=>{if(matchMedia('(pointer:coarse)').matches)goFull();startIntro()};$('skipBtn').onclick=()=>endIntro();$('introBtn').onclick=()=>startIntro();
 $('wrap').addEventListener('pointerdown',e=>{if(state==='intro'&&introT>.6&&e.target.id!=='skipBtn')endIntro()});
 $('muteBtn').onclick=()=>{audio();setMuted(!muted);refreshTitle()};
 $('musicBtn').onclick=()=>{musicOn=!musicOn;store.set('music',musicOn);audio();musicKick();refreshTitle()};
@@ -1873,7 +1883,7 @@ function trickReady(){const r=state==='play'&&G&&!G.dead&&!G.grounded;if(r!==PAD
 /* ---------------- layout ---------------- */
 function layout(){const s=Math.min(innerWidth/W,innerHeight/H);const wr=$('wrap');wr.style.width=Math.floor(W*s)+'px';wr.style.height=Math.floor(H*s)+'px';document.documentElement.style.setProperty('--u',s/2);
  $('rot').classList.toggle('need',innerHeight>innerWidth)}
-addEventListener('resize',layout);layout();
+addEventListener('resize',layout);layout();if(typeof fsLabel==='function')fsLabel();
 
 /* ---------------- locker preview ---------------- */
 const pv=$('prev').getContext('2d');pv.imageSmoothingEnabled=false;
