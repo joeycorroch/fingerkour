@@ -102,6 +102,9 @@ body.pad .cb{display:none}
 /* optional CRT mode: scanlines, phosphor mask, soft glow, curved glass */
 #crt{position:absolute;inset:0;pointer-events:none;z-index:0;display:none;border-radius:4.5%/8%;overflow:hidden}
 body.crt #crt{display:block}
+#gl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none}
+body.glon #gl{display:block}
+body.crt.glon #gl{filter:blur(.35px) saturate(1.18) contrast(1.08) brightness(1.08);border-radius:4.5%/8%}
 body.crt canvas#c{filter:blur(.35px) saturate(1.18) contrast(1.08) brightness(1.08);border-radius:4.5%/8%}
 #crt .sl{position:absolute;inset:0;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 55%,rgba(8,0,16,.3) 55%,rgba(8,0,16,.3) 100%);background-size:100% calc(100% / 216)}
 #crt .ms{position:absolute;inset:0;background:repeating-linear-gradient(to right,rgba(255,40,60,.07) 0,rgba(255,40,60,.07) 33%,rgba(40,255,120,.07) 33%,rgba(40,255,120,.07) 66%,rgba(60,90,255,.07) 66%,rgba(60,90,255,.07) 100%);background-size:calc(100% / 384) 100%;mix-blend-mode:multiply}
@@ -114,6 +117,7 @@ body.crt canvas#c{filter:blur(.35px) saturate(1.18) contrast(1.08) brightness(1.
 <body>
 <div id="wrap">
   <canvas id="c" width="384" height="216"></canvas>
+  <canvas id="gl"></canvas>
   <div id="crt"><div class="ms"></div><div class="sl"></div><div class="rb"></div><div class="gl"></div></div>
 
   <div id="toast"></div>
@@ -2339,14 +2343,48 @@ async function renderScores(){const tabs=$('lbTabs');tabs.innerHTML=LB_KEYS.map(
  if(!rows.length){body.innerHTML='<div class="note">No times yet — go set one!</div>';return}
  body.innerHTML=rows.map((r,i)=>`<div class="lb-row${r.me?' me':''}"><span class="lb-r">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</span><span class="lb-n">${String(r.n).replace(/[^A-Z0-9?]/g,'')}</span><span class="lb-v">${fmtT(r.v)}</span><span class="lb-d">${lbTab==='endless'?(r.d||0)+'m':''}</span></div>`).join('')}
 
+
+// ---- HD edge smoothing: WebGL pixel-art upscaler (xBR-style diagonal rounding with anti-aliased edges) ----
+const GLX=(()=>{const c=document.getElementById('gl');let gl=null;try{gl=c.getContext('webgl',{alpha:false,antialias:false,premultipliedAlpha:false})}catch(e){}if(!gl)return null;
+ const vs='attribute vec2 p;varying vec2 uv;void main(){uv=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}';
+ const fs=`precision highp float;uniform sampler2D t;uniform vec2 sz;uniform float px;varying vec2 uv;
+ vec3 T(vec2 q){return texture2D(t,(q+.5)/sz).rgb;}
+ float D(vec3 a,vec3 b){vec3 d=abs(a-b);return d.r*.3+d.g*.59+d.b*.11;}
+ const float th=.055;
+ vec3 corner(vec3 E,vec2 ip,vec2 dir,vec2 f){
+  vec3 Bv=T(ip+vec2(0.,dir.y)),Dh=T(ip+vec2(dir.x,0.)),Fo=T(ip-vec2(dir.x,0.)),Ho=T(ip-vec2(0.,dir.y)),C=T(ip+dir);
+  float u=abs(f.x-.5)*2.,v=abs(f.y-.5)*2.;
+  if(D(Bv,Dh)<th&&D(E,Bv)>=th&&D(Bv,Fo)>=th&&D(Dh,Ho)>=th){float k=smoothstep(1.-px,1.+px,u+v);return mix(E,mix(Bv,Dh,.5),k);}
+  // shallow 2:1 slopes: extend the cut along the longer run
+  if(D(Bv,Dh)<th&&D(E,Bv)>=th&&D(C,Bv)<th){float k=smoothstep(1.-px,1.+px,u*.5+v*.5+.35);return mix(E,Bv,k*.85);}
+  return E;}
+ void main(){vec2 q=uv*sz-.5;vec2 ip=floor(q+.5);vec2 f=q+.5-ip;vec3 E=T(ip);
+  vec2 dir=vec2(f.x<.5?-1.:1.,f.y<.5?-1.:1.);vec3 col=corner(E,ip,dir,f);
+  // soften the remaining square pixel boundaries by one output pixel (sharp-bilinear)
+  vec2 g=fract(uv*sz);vec2 e=clamp((g-.5)/max(px*.5,1e-4)*.5+.5,0.,1.);
+  vec3 nx=corner(T(ip+vec2(dir.x,0.)),ip+vec2(dir.x,0.),dir*vec2(-1.,1.),vec2(1.-f.x,f.y)),ny=corner(T(ip+vec2(0.,dir.y)),ip+vec2(0.,dir.y),dir*vec2(1.,-1.),vec2(f.x,1.-f.y));
+  float ax=smoothstep(1.-px,1.,abs(f.x-.5)*2.)*.5,ay=smoothstep(1.-px,1.,abs(f.y-.5)*2.)*.5;
+  col=mix(col,nx,ax);col=mix(col,ny,ay);
+  gl_FragColor=vec4(col,1.);}`;
+ const sh=(ty,src)=>{const o=gl.createShader(ty);gl.shaderSource(o,src);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)){console.warn(gl.getShaderInfoLog(o));return null}return o};
+ const v=sh(gl.VERTEX_SHADER,vs),f=sh(gl.FRAGMENT_SHADER,fs);if(!v||!f)return null;const pr=gl.createProgram();gl.attachShader(pr,v);gl.attachShader(pr,f);gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))return null;gl.useProgram(pr);
+ const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);const loc=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+ const tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);for(const [k,vv] of[[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,k,vv);
+ const uSz=gl.getUniformLocation(pr,'sz'),uPx=gl.getUniformLocation(pr,'px');gl.uniform2f(uSz,W,H);
+ let ow=0,oh=0;
+ function fit(){const r=c.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),w=Math.max(W,Math.round(r.width*d)),h=Math.max(H,Math.round(r.height*d));if(w!==ow||h!==oh){ow=w;oh=h;c.width=w;c.height=h;gl.viewport(0,0,w,h);gl.uniform1f(uPx,Math.min(1,W/w*2))}}
+ document.body.classList.add('glon');
+ return{present(){if(gl.isContextLost())return;fit();gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);gl.drawArrays(gl.TRIANGLE_STRIP,0,4)}}})();
+function glPresent(){if(GLX)try{GLX.present()}catch(e){}}
 function frame(now){
  const dt=Math.min(.033,(now-last)/1000);last=now;padPoll(dt);trickReady();musicLevel();musicFX(dt);
- if(state==='intro'){clock+=dt;stepTheme(dt);drawIntro(dt);requestAnimationFrame(frame);return}
+ if(state==='intro'){clock+=dt;stepTheme(dt);drawIntro(dt);glPresent();requestAnimationFrame(frame);return}
  if(HIT>0&&state==='play'){HIT-=dt;clock+=dt*.25;if(G)G.flash=Math.max(0,G.flash-dt*4)}else if(state==='play'||state==='title'||state==='splash'||state==='over'||state==='done')update(state==='over'||state==='done'?dt*.0:dt);
  else clock+=0;
  if(state==='title'&&$('sLocker').classList.contains('on'))renderPreview();
  render();
  if(irisT>0){irisT-=dt;iris((1-irisT/.7)*420,W/2,H/2)}
+ glPresent();
  requestAnimationFrame(frame);
 }
 newGame('demo');state='splash';show('sSplash');
