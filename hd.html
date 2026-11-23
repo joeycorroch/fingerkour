@@ -1491,14 +1491,16 @@ function loadPhotos(){if(!HD||PH.loading)return;PH.loading=true;
   for(const k of['wall','pave','road']){const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.width;c.height=im.height;c.getContext('2d').drawImage(im,0,0);PH.tex[k]=c;done()};im.onerror=done;im.src=o.tex[k]}})
  .catch(()=>{PH.loading=false})}
 function photoIdx(){if(G&&G.mode==='trip'&&G.trip!=null)return G.trip;return({day:0,sunset:4,night:6,dawn:3})[palTarget]??0}
-function photoStrips(img,cam,cy,a){const IW=img.width,IH=img.height,top=Math.round(-26-cy*.06);ctx.globalAlpha=a;
- if(top>0){ctx.drawImage(img,0,0,IW,1,0,0,W,top)}
- for(let y=Math.max(0,top);y<H;y+=3){const sy=y-top;if(sy>=IH)break;const f=.012+.12*Math.max(0,Math.min(1,(sy-60)/170));const sx=Math.floor(((cam*f)%IW+IW)%IW),w1=Math.min(W,IW-sx),hh=Math.min(3,IH-sy);
-  ctx.drawImage(img,sx,sy,w1,hh,0,y,w1,hh);if(w1<W)ctx.drawImage(img,0,sy,W-w1,hh,w1,y,W-w1,hh)}
+function photoStrips(img,cam,cy,a){// one solid far layer: uniform slow parallax so the photo never tears
+ const IW=img.width,IH=img.height,top=Math.round(-24-cy*.06);ctx.globalAlpha=a;
+ if(top>0)ctx.drawImage(img,0,0,IW,1,0,0,W,top);
+ const sx=Math.floor(((cam*.05)%IW+IW)%IW),w1=Math.min(W,IW-sx);ctx.drawImage(img,sx,0,w1,IH,0,top,w1,IH);if(w1<W)ctx.drawImage(img,0,0,W-w1,IH,w1,top,W-w1,IH);
  if(top+IH<H)ctx.drawImage(img,0,IH-1,IW,1,0,top+IH,W,H-top-IH);ctx.globalAlpha=1}
 function photoBG(cam,cy){if(!PH.ready)return false;const idx=photoIdx(),img=PH.wide[idx];if(!img)return false;
  if(PH.cur!==idx){PH.prev=PH.cur;PH.cur=idx;PH.ft=PH.prev<0?1:0}PH.ft=Math.min(1,PH.ft+1/90);
  if(PH.ft<1&&PH.wide[PH.prev])photoStrips(PH.wide[PH.prev],cam,cy,1);photoStrips(img,cam,cy,PH.ft<1?PH.ft:1);
+ // push the photo back: distance tint so the playfield reads in front of it
+ {const k=pal.sky1;ctx.fillStyle=`rgba(${k[0]|0},${k[1]|0},${k[2]|0},.16)`;ctx.fillRect(0,0,W,H)}
  // aerial depth: a soft band of haze where the photo meets the street scene
  const g=ctx.createLinearGradient(0,H*.48,0,H*.8),hz=pal.sky2;g.addColorStop(0,`rgba(${hz[0]|0},${hz[1]|0},${hz[2]|0},0)`);g.addColorStop(1,`rgba(${hz[0]|0},${hz[1]|0},${hz[2]|0},.28)`);ctx.fillStyle=g;ctx.fillRect(0,H*.48,W,H*.52);
  return true}
