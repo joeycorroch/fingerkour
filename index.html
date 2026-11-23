@@ -500,7 +500,7 @@ function newGame(mode,trip){
  const plan=PLANS[mode==='trip'?'trip'+trip:'endless'];
  G={mode,trip,x:0,y:STREET_Y,vy:0,grounded:true,coyote:0,buf:0,airJ:1,speed:0,phase:0,dist:0,coins:0,style:0,bank:0,combo:0,
   trick:null,queued:null,rot:0,sx:1,dead:false,deadT:0,stumble:0,power:null,
-  plats:[],obs:[],coinA:[],items:[],parts:[],pops:[],dust:[],fx:[],flashC:'#ffffff',sq:0,sqv:0,jumpT:-9,landV:0,ghost:[],trail:[],drops:[],decor:[],marks:[],genX:-200,genY:STREET_Y,total:0,
+  plats:[],obs:[],coinA:[],items:[],parts:[],pops:[],dust:[],fx:[],ropes:[],zips:[],swing:null,zip:null,lastSP:0,flashC:'#ffffff',sq:0,sqv:0,jumpT:-9,landV:0,ghost:[],trail:[],drops:[],decor:[],marks:[],genX:-200,genY:STREET_Y,total:0,
   plan,pi:0,zone:plan[0][0],zoneEnd:plan[0][1]||1e9,lastPlat:null,lastLand:STREET_Y,camY:0,
   len:mode==='trip'?TRIPS[trip].len:Infinity,finalMade:false,finishX:Infinity,finished:false,doneT:0,flash:0,demo:mode==='demo',time:0,weather:'clear',wAmt:0,wNext:null,wp:[],boltT:0,boltNext:3,wSched:(mode==='trip'?WX_TRIPS[trip].slice():null),fullJump:false,celeN:0,cele:null,celeQ:false,shield:0,landT:9};
  {const z0=plan[0][0],sy0=z0==='roof'?ROOF_Y:z0==='highway'?RY-30:STREET_Y;G.envHwy=z0==='highway'?1:0;addPlat(-200,sy0,mode==='demo'?1e9:520,FINALT[z0]||'street');G.genY=sy0;G.y=sy0;G.lastLand=sy0;G.camY=Math.min(0,sy0-150)}G.genX=320;
@@ -512,6 +512,101 @@ function addPlat(x,y,w,type){const p={x,y,w,type,v:hash(Math.floor(x))};
  G.plats.push(p);G.lastPlat=p;return p}
 function addCoin(x,y){G.coinA.push({x,y,ph:x*.1});G.total++}
 function coinArc(x0,x1,yTop){const n=Math.max(3,Math.round((x1-x0)/13));for(let i=0;i<n;i++){const t=i/(n-1);addCoin(lerp(x0,x1,t),yTop+28*(2*t-1)*(2*t-1))}}
+
+// ======================= SET PIECES: ramps, pitched roofs, power-line tightropes, rope swings, cranes, zip lines =======================
+function surfY(p,x){if(p.sy0!=null){const t=clamp((x-p.x)/p.w,0,1);return p.sy0+(p.sy1-p.sy0)*t}if(p.sag){const t=clamp((x-p.x)/p.w,0,1);return p.y+p.sag*4*t*(1-t)}return p.y}
+function addPiece(o){o.v=hash(Math.floor(o.x));G.plats.push(o);return o}
+function spAllowed(){return !G.demo&&G.genX>650&&G.genX-G.lastSP>720&&G.genX<(isFinite(G.len)?G.len-800:1e12)}
+function trySetpiece(zone,d){if(!spAllowed()||rng()>.55)return false;
+ const opts={street:['wire','rope','wire'],chinatown:['wire','rope'],park:['rope','rope','wire'],beach:['rope','wire'],docks:['rope','rope'],roof:['house','zip','rope','house','wire','zip']}[zone];if(!opts)return false;
+ const kind=opts[Math.floor(rng()*opts.length)],t={street:'street',chinatown:'cstreet',park:'grass',beach:'board',docks:'container',roof:'roof'}[zone];
+ const y=zone==='docks'?STREET_Y-DCH*Math.min(2,Math.max(0,Math.round((STREET_Y-G.genY)/DCH))):zone==='roof'?G.genY:STREET_Y;
+ const gin=G.lastPlat&&G.lastPlat.type!==t?Math.round(R(12,20)):(zone==='roof'||zone==='docks')?Math.round(R(18,28)):0;
+ if(kind==='house'){// a little pitched-roof house sitting on the rooftop: run up the tiles and launch off the ridge
+  const x=G.genX+gin,w=Math.round(R(250,300));addPlat(x,y,w,'roof');const hx=x+Math.round(w*.34),hw=Math.round(R(48,58)),rise=Math.round(R(34,40));
+  addPiece({type:'ramp',st:'tiles',x:hx,w:hw,sy0:y,sy1:y-rise,y:y-rise,base:y,kick:1.45,house:1});addPiece({type:'ramp',st:'tiles',x:hx+hw,w:hw,sy0:y-rise,sy1:y,y:y-rise,base:y,house:2});
+  placeObs(x+w-90,80,y,'roof',d);for(let i=0;i<5;i++)addCoin(hx+hw-24+i*12,y-rise-30-Math.round(10*Math.sin(i/4*PI)));
+  G.genX=x+w;G.genY=y;G.lastSP=G.genX;return true}
+ if(kind==='zip'){// zip line from this roof down to a lower one
+  const x=G.genX+gin,w=Math.round(R(170,210));addPlat(x,y,w,'roof');placeObs(x,90,y,'roof',d);const gw=Math.round(R(230,280)),by=Math.min(y+Math.round(R(40,56)),ROOF_Y+44);
+  G.zips.push({x0:x+w-34,y0:y-44,x1:x+w+gw+24,y1:by-24,used:false});const bx=x+w+gw,bw=Math.round(R(200,260));G.lastPlat.nocue=1;
+  for(let i=0;i<6;i++){const tt=(i+1)/7;addCoin(lerp(x+w-34,x+w+gw+24,tt),lerp(y-44,by-24,tt)+20)}
+  addPlat(bx,by,bw,'roof');placeObs(bx+70,bw-70,by,'roof',d);G.genX=bx+bw;G.genY=by;G.lastSP=G.genX;return true}
+ if(kind==='wire'){// power line strung across a gap: ramp (or hop) up and tightrope across
+  const x=G.genX+gin,w=Math.round(R(210,250));addPlat(x,y,w,t);G.lastPlat.nocue=1;placeObs(x,Math.max(0,w-150),y,zone,d);
+  const gw=Math.round(R(170,215)),onRoof=zone==='roof',wy=onRoof?y-20:y-58,sag=onRoof?7:9;
+  if(!onRoof)addPiece({type:'ramp',st:zone==='park'?'log':zone==='beach'?'surf':'plank',x:x+w-60,w:50,sy0:y,sy1:y-30,y:y-30,base:y,kick:1.65});
+  addPiece({type:'wire',x:x+w-8,w:gw+16,y:wy,sag,thin:1,base:y,lan:zone==='chinatown'});
+  for(let i=0;i<7;i++){const tt=(i+.5)/7;addCoin(x+w-8+tt*(gw+16),wy+sag*4*tt*(1-tt)-11)}
+  const bx=x+w+gw,bw=Math.round(R(210,260));addPlat(bx,y,bw,t);placeObs(bx+70,bw-70,y,zone,d);G.genX=bx+bw;G.genY=y;G.lastSP=G.genX;return true}
+ if(kind==='rope'){// rope swing over a gap: crane hook at the docks, a tree vine in the park, a gantry arm elsewhere
+  const x=G.genX+gin,w=Math.round(R(200,240));addPlat(x,y,w,t);G.lastPlat.nocue=1;placeObs(x,Math.max(0,w-130),y,zone,d);
+  const gw=Math.round(R(180,210)),ax=x+w+70,ay=y-128,len=96;
+  G.ropes.push({x:ax,y:ay,len,used:false,ph:rng()*6,st:zone==='docks'?'crane':zone==='park'?'vine':zone==='beach'?'mast':zone==='roof'?'crane':'gantry',px:x+w-10,base:y});
+  coinArc(ax+10,ax+120,y-70);const bx=x+w+gw,bw=Math.round(R(210,260));const by=zone==='docks'?y:y;addPlat(bx,by,bw,t);placeObs(bx+80,bw-80,by,zone,d);
+  G.genX=bx+bw;G.genY=by;G.lastSP=G.genX;return true}
+ return false}
+// ---- swinging / zipping physics ----
+function tryGrab(){if(G.swing||G.zip||G.grounded||G.dead)return;const gx=G.x,gy=G.y-14;
+ for(const r of G.ropes){if(r.used)continue;const a0=Math.sin(clock*1.4+r.ph)*.1,dx=gx-r.x,dy=gy-r.y,L=Math.hypot(dx,dy);if(L<r.len*.35||L>r.len+8||dy<=0)continue;const a=Math.atan2(dx,dy);if(Math.abs(a-a0)>.2)continue;
+  const tv=G.speed*Math.cos(a)-G.vy*Math.sin(a);G.swing={r,L,a,av:Math.max(1.2,tv/L)};G.vy=0;G.trick=null;G.rot=0;G.sx=1;G.airJ=1;sfx(180,90,.12,'triangle',.06);puff(gx,gy,5,'#e8d8b0',50);pop('GRAB!','#ffe14a',G.x,G.y-46);return}
+ for(const z of G.zips){if(z.used||gx<z.x0||gx>z.x1-20)continue;const ly=lerp(z.y0,z.y1,(gx-z.x0)/(z.x1-z.x0));if(Math.abs(gy-ly)<8){G.zip={z};G.vy=0;G.trick=null;G.rot=0;G.sx=1;sfx(900,1400,.15,'sawtooth',.03);pop('ZIP LINE!','#3cf0c0',G.x,G.y-46);return}}}
+function swingStep(gdt){const S=G.swing,r=S.r;S.av+=(-(GRAV/S.L)*Math.sin(S.a)+3.2)*gdt;S.a+=S.av*gdt;
+ G.x=r.x+S.L*Math.sin(S.a);G.y=r.y+S.L*Math.cos(S.a)+14;G.speed=Math.max(60,S.L*S.av*Math.cos(S.a));
+ if(G.buf>0&&S.a>.15||S.a>.98||S.av<.5)releaseSwing()}
+function releaseSwing(){const S=G.swing;if(!S)return;const v=S.L*S.av;G.speed=clamp(Math.max(v*Math.cos(S.a)*1.5,215),180,280);G.vy=-v*Math.sin(S.a)-110;S.r.used=true;G.swing=null;G.buf=0;G.airJ=1;G.coyote=0;G.style+=40;G.lastLand=Math.max(G.lastLand,S.r.base);
+ sfx(300,900,.18,'triangle',.06);pop('SWING! +40','#ffffff',G.x,G.y-50);G.sq=.22;G.sqv=0}
+function zipStep(gdt){const z=G.zip.z;G.speed=Math.min(290,G.speed+260*gdt);const t=clamp((G.x-z.x0)/(z.x1-z.x0),0,1);G.y=lerp(z.y0,z.y1,t)+16;
+ if(Math.random()<.5)G.parts.push({x:G.x-2,y:G.y-16,vx:-40-Math.random()*60,vy:-Math.random()*40,life:.25,col:Math.random()<.5?'#ffe14a':'#ffffff',g:300,s:1});
+ if(t>=1||G.buf>0){const end=t>=1;z.used=true;G.zip=null;G.vy=end?-60:-220;G.buf=0;G.airJ=1;G.lastLand=Math.max(G.lastLand,z.y1+24);G.style+=30;pop('ZIP! +30','#3cf0c0',G.x,G.y-46)}}
+// ---- drawing ----
+function drawSlope(p,cam){const x0=Math.round(p.x-cam);if(x0>W+4||x0+p.w<-4)return;const st=p.st;
+ if(st==='tiles'){// pitched roof: gable wall + terracotta tiles
+  const T=rmp('#b8503e'),Wl=rmp(mix('#d8c8b0',q8(pal.roof),.3));
+  for(let i=0;i<p.w;i++){const X=x0+i;if(X<-2||X>W+2)continue;const sy=Math.round(surfY(p,p.x+i));fr(Wl.b,X,sy+3,1,p.base-sy-3);fr(K,X,sy-1,1,1);fr(((i+Math.floor(p.x))>>2)%2?T.b:T.s,X,sy,1,3);fr(T.h,X,sy,1,1)}
+  if(p.house===1){const wx=x0+p.w-12,wy=Math.round(p.sy1)+14;if(wy<p.base-10){fr(K,wx-1,wy-1,12,11);fr('#5a7aa8',wx,wy,10,9);fr(NA>.4?'#ffe9a0':'#9ac0e8',wx+1,wy+1,4,3);fr(NA>.4?'#ffe9a0':'#9ac0e8',wx+5,wy+1,4,3);fr(K,wx+4,wy,1,9)}
+   const cx=x0+Math.round(p.w*.4),cy=Math.round(surfY(p,p.x+p.w*.4));fr(K,cx-1,cy-15,9,15);fr('#9a4a3a',cx,cy-14,7,14);fr('#c86a52',cx,cy-14,2,14);fr(K,cx-2,cy-17,11,3);fr('#6a6e88',cx-1,cy-16,9,1)}
+  if(p.house===1){const ey=p.sy0;fr(K,x0-5,ey-3,7,3);fr('#9a3a2e',x0-4,ey-2,5,1)}else if(p.house===2){const ey=p.sy1;fr(K,x0+p.w-2,ey-3,7,3);fr('#9a3a2e',x0+p.w-1,ey-2,5,1)}
+  fr(K,x0-1,p.base-1,p.w+2,1);return}
+ // builder's ramp: a plank on crates (or a log / surfboard), hazard-striped edge
+ const C=st==='log'?rmp('#8a5a32'):st==='surf'?rmp('#ff9a3c'):rmp('#c8a060');
+ for(let i=0;i<p.w;i++){const X=x0+i;if(X<-2||X>W+2)continue;const sy=Math.round(surfY(p,p.x+i));fr(K,X,sy-1,1,6);fr(C.b,X,sy,1,4);fr(C.h,X,sy,1,1);if(st==='plank')fr(((i>>2)&1)?'#ffd23f':'#22141c',X,sy+3,1,1)}
+ const ex=x0+p.w-1,ey=Math.round(p.sy1);fr(K,ex-10,ey+4,12,p.base-ey-4);fr(st==='plank'?'#3d6fe0':st==='log'?'#6a4a2a':'#e8e0d0',ex-9,ey+5,10,p.base-ey-6);fr('rgba(255,255,255,.25)',ex-9,ey+5,10,1);
+ if(st==='plank'){fr(K,x0+12,Math.round(surfY(p,p.x+14))+4,10,p.base-Math.round(surfY(p,p.x+14))-4);fr('#c8a060',x0+13,Math.round(surfY(p,p.x+14))+5,8,p.base-Math.round(surfY(p,p.x+14))-6)}
+ // launch chevrons
+ if(Math.sin(clock*9)>-.2){fr('#ffffff',ex-4,ey-9,1,1);fr('#ffffff',ex-3,ey-10,1,1);fr('#ffffff',ex-2,ey-11,1,1);fr('#ffffff',ex-1,ey-10,1,1);fr('#ffffff',ex,ey-9,1,1)}}
+function drawWire(p,cam){const x0=Math.round(p.x-cam);if(x0>W+20||x0+p.w<-20)return;const on=G.supp===p;
+ for(const px of[x0-2,x0+p.w+1]){const top=p.y-8;fr(K,px-2,top,5,p.base+40-top);fr('#6a5a4a',px-1,top,3,p.base+40-top);fr('#8a7a64',px-1,top,1,p.base+40-top);fr(K,px-7,top+2,15,3);fr('#6a5a4a',px-6,top+3,13,1);fr('#d8e4f0',px-6,top,2,2);fr('#d8e4f0',px+5,top,2,2)}
+ let lx=x0,ly=p.y;for(let i=0;i<=p.w;i++){const X=x0+i;let yy=surfY(p,p.x+i);if(on){const d=(p.x+i-G.x)/16;yy+=3*Math.exp(-d*d)}const Y=Math.round(yy);if(X>=-1&&X<=W+1){fr(K,X,Y-1,1,4);fr('#4a4458',X,Y,1,2);fr('#8a8498',X,Y,1,1)}
+  if(p.lan&&i%26===13){const lr=rmp('#e8283a');fr('#3a2a1a',X,Y+1,1,3);fr(K,X-3,Y+4,7,8);fr(lr.b,X-2,Y+5,5,6);fr(lr.h,X-2,Y+5,1,6);if(NA>.3)neonGlow(X,Y+8,10,10,'#ff5a3a',.4)}}
+ if(Math.random()<.04){const sx=x0+(Math.random()<.5?2:p.w-2),sy=p.y-2;for(let k=0;k<4;k++)fr(k%2?'#ffffff':'#9af0ff',sx+Math.round((Math.random()-.5)*8),sy+Math.round((Math.random()-.5)*6),1,1)}}
+function drawRopes(cam){for(const r of G.ropes){const ax=Math.round(r.x-cam);if(ax<-140||ax>W+140)continue;
+  // support: crane / gantry arm / tree branch / mast from the near edge
+  const px=Math.round(r.px-cam),py=r.y-4;
+  if(r.st==='crane'){const C=rmp('#e8b020');fr(K,px-3,py-2,7,r.base-py+60);fr(C.b,px-2,py-1,5,r.base-py+60);for(let yy=py+2;yy<r.base+60;yy+=6){fr(C.d,px-2,yy,5,1);fr(K,px-2+((yy/6)&1?0:4),yy,1,6)}
+   fr(K,px-26,py-3,ax-px+34,7);fr(C.b,px-25,py-2,ax-px+32,5);for(let xx=px-24;xx<ax+6;xx+=6){fr(C.d,xx,py-2,1,5);fr(K,xx+2,py,2,1)}fr(K,px-24,py-11,14,9);fr('#8a8ea8',px-23,py-10,12,7);fr(K,px+2,py-18,4,16);fr(C.b,px+3,py-17,2,14)}
+  else if(r.st==='vine'){const B=rmp('#7a5232'),L=rmp('#3aaa4e'),LD=q8([40,110,60]);
+   // trunk flaring at the roots, a thick branch reaching out over the water
+   for(let yy=py-8;yy<r.base;yy++){const fl=yy>r.base-10?Math.round((yy-(r.base-10))*.6):0,tw=9+fl;fr(K,px-Math.ceil(tw/2)-1,yy,tw+2,1);fr(B.b,px-Math.ceil(tw/2),yy,tw,1);fr(B.h,px-Math.ceil(tw/2),yy,2,1);fr(B.d,px+Math.floor(tw/2)-2,yy,2,1)}
+   for(let xx=px;xx<ax+8;xx++){const t2=(xx-px)/(ax-px+8),yy=py+Math.round(Math.sin(t2*PI)*-4),th=Math.max(3,Math.round(6-t2*3));fr(K,xx,yy-1,1,th+2);fr(B.b,xx,yy,1,th);fr(B.h,xx,yy,1,1)}
+   // canopy: overlapping leaf clumps of different sizes, dark underside, sunlit tops
+   const cl=[];for(let k=0;k<14;k++){const t2=k/13,cx=Math.round(lerp(px-26,ax+16,t2)+Math.sin(k*2.3)*6),cy=Math.round(py-16-Math.sin(t2*PI)*14+Math.cos(k*1.9)*6),cr=Math.round(9+Math.abs(Math.sin(k*1.3))*7);cl.push([cx,cy,cr])}
+   for(const[cx,cy,cr]of cl)pcirc(cx,cy,cr+1,K);for(const[cx,cy,cr]of cl)pcirc(cx,cy+2,cr,LD);for(const[cx,cy,cr]of cl)pcirc(cx-1,cy-1,cr-2,L.b);for(const[cx,cy,cr]of cl)pcirc(cx-3,cy-4,Math.max(2,Math.round(cr*.45)),L.h);
+   for(let k=0;k<22;k++){const lx2=Math.round(lerp(px-30,ax+20,hash(k*3.3))),ly2=Math.round(py-26+hash(k*7.1)*30);fr(k%3?L.h:LD,lx2,ly2,2,1)}}
+  else{const M=rmp(r.st==='mast'?'#e8e0d0':'#8a8ea8');fr(K,px-2,py-2,5,r.base-py+40);fr(M.b,px-1,py-1,3,r.base-py+40);fr(K,px-2,py-3,ax-px+8,5);fr(M.b,px-1,py-2,ax-px+6,3);fr(M.h,px-1,py-2,ax-px+6,1);fr(K,px,py+1,10,1);for(let k=0;k<6;k++)fr(M.d,px+2+k,py+2+k,1,1)}
+  // the rope itself
+  let a,L;if(G.swing&&G.swing.r===r){a=G.swing.a;L=G.swing.L}else{a=Math.sin(clock*1.4+r.ph)*.1;L=r.len}
+  const tx=r.x+L*Math.sin(a),ty=r.y+L*Math.cos(a),n=Math.ceil(L/2);for(let i=0;i<=n;i++){const q=i/n,X=Math.round(lerp(r.x,tx,q)-cam),Y=Math.round(lerp(r.y,ty,q));fr(K,X-1,Y,3,2);fr(((i>>1)&1)?'#c8a060':'#e8c88a',X,Y,1,2)}
+  const TX=Math.round(tx-cam),TY=Math.round(ty);
+  if(!(G.swing&&G.swing.r===r)){if(r.st==='crane'){fr(K,TX-3,TY,7,4);fr('#c8ccd8',TX-2,TY+1,5,2);fr(K,TX-1,TY+4,3,5);fr('#c8ccd8',TX,TY+4,1,4);fr('#c8ccd8',TX+1,TY+7,2,1)}
+   else if(r.st==='vine'){pcirc(TX,TY+4,5,K);pcirc(TX,TY+4,4,'#2a2a32');pcirc(TX,TY+4,2,K)}else{fr(K,TX-2,TY,5,6);fr('#ff4f7b',TX-1,TY+1,3,4)}
+   if(!r.used&&G.x<r.x&&r.x-G.x<170&&Math.sin(clock*10)>0){fr('#ffe14a',TX+6,TY-4,1,1);fr('#ffe14a',TX+5,TY-3,3,1);fr('#ffe14a',TX+4,TY-2,5,1);txt('GRAB',TX+6,TY-12,'#ffe14a','center')}}}}
+function drawZips(cam){for(const z of G.zips){const x0=Math.round(z.x0-cam),x1=Math.round(z.x1-cam);if(x1<-20||x0>W+20)continue;
+  for(const[px,py]of[[x0,z.y0],[x1,z.y1]]){fr(K,px-2,py-4,5,90);fr('#8a8ea8',px-1,py-3,3,90);fr('#c8ccd8',px-1,py-3,1,90);fr(K,px-4,py-5,9,3)}
+  const n=x1-x0;for(let i=0;i<=n;i++){const X=x0+i;if(X<-1||X>W+1)continue;const Y=Math.round(lerp(z.y0,z.y1,i/n));fr(K,X,Y-1,1,2);fr('#9aa0b8',X,Y,1,1)}
+  let hx,hy;if(G.zip&&G.zip.z===z){hx=Math.round(G.x-cam);hy=Math.round(lerp(z.y0,z.y1,clamp((G.x-z.x0)/(z.x1-z.x0),0,1)))}else if(!z.used){hx=x0+8;hy=Math.round(lerp(z.y0,z.y1,8/n))}
+  if(hx!=null){fr(K,hx-4,hy-3,9,5);fr('#ffd23f',hx-3,hy-2,7,3);fr(K,hx-1,hy+2,3,8);fr('#3a3a52',hx,hy+2,1,7);fr(K,hx-4,hy+9,9,3);fr('#ff3050',hx-3,hy+10,7,1);
+   if(!G.zip&&!z.used&&G.x<z.x0+40&&z.x0-G.x<170&&Math.sin(clock*10)>0)txt('JUMP & GRAB',hx,hy-12,'#3cf0c0','center')}}}
 function difficulty(){return G.mode==='trip'?TRIPS[G.trip].diff+.25*clamp(G.genX/G.len,0,1):Math.min(1,G.genX/25000)}
 function nextZone(){G.pi++;const pl=G.plan[G.pi%G.plan.length];G.zone=pl[0];G.zoneEnd=G.genX+(pl[1]||1e9);
  G.marks.push({x:G.genX+20,name:ZNAME[G.zone]});if(G.zone==='scaffold')G.decor.push({k:'site',x0:G.genX+4,x1:null,top:ROOF_Y})}
@@ -639,6 +734,7 @@ function gen(){
   for(let i=0;i<6;i++)addCoin(x+30+i*12,fy-12);G.genX=x+800;G.finalMade=true;return}
  if(GROUNDZ.includes(G.zone)&&G.genX>=G.zoneEnd)nextZone();
  if(G.zone==='highway'){genHighway(d);return}
+ if(['street','chinatown','park','beach','docks','roof'].includes(G.zone)&&trySetpiece(G.zone,d))return;
  if(G.zone==='park'||G.zone==='beach'||G.zone==='chinatown'){const t=G.zone==='park'?'grass':G.zone==='beach'?'board':'cstreet',lp=G.lastPlat,same=lp&&lp.type===t,hole=same&&rng()<(t==='board'?.45:.38)+.2*d;
   const gap=hole?bigGap(d,Math.round(R(22,30+8*d))):(lp&&lp.type!==t?Math.round(R(12,22)):0),x=G.genX+gap,w=Math.round(R(200,340)),y=STREET_Y;
   if(gap>18&&(gap>60||rng()<.6))coinArc(G.genX-6,x+6,y-34-(gap>60?14:0));addPlat(x,y,w,t);placeObs(x,w,y,G.zone,d);G.genX=x+w;G.genY=y;return}
@@ -755,7 +851,7 @@ function update(dt){
  stepTheme(dt);
  {let ahead=-1e9;for(const q of G.plats){if(q.x>G.x+250)continue;if(q.x+q.w>G.x+10)ahead=Math.max(ahead,q.y)}for(const o of G.obs)if(o.solid&&!o.dead&&o.x>G.x&&o.x<G.x+250)ahead=Math.max(ahead,o.y-o.h);
  let tgt=G.lastLand-150;if(ahead>-1e9)tgt=Math.max(tgt,Math.min(ahead-(H-34),G.lastLand-62));tgt=Math.min(0,tgt,G.y-56);G.camY+=(tgt-G.camY)*Math.min(1,dt*3)}
- while(G.marks.length&&G.x>=G.marks[0].x){const m=G.marks.shift();pop(m.name,'#ffffff',G.x+60,G.y-70);G.pops[G.pops.length-1].life=1.8}
+ while(G.marks.length&&G.x>=G.marks[0].x){const m=G.marks.shift();const st=G.pops.filter(p=>p.big&&p.life>.6).length;pop(m.name,'#ffffff',G.x+60,G.y-70+st*12);G.pops[G.pops.length-1].big=1;G.pops[G.pops.length-1].life=1.8}
  G.decor=G.decor.filter(d=>d.x1==null||d.x1>G.x-500);
  if(G.mode==='endless'){palTarget=THEME_ORDER[Math.floor(G.x/8000)%4]}
  // particles, popups
@@ -788,9 +884,11 @@ function update(dt){
  if(G.buf>0){G.buf-=dt;
   if(G.grounded||G.coyote>0){doJump(false);G.buf=0}
   else if(G.airJ>0&&G.vy>-160){G.sq=.18;G.sqv=0;G.jumpT=clock;G.vy=-JV2*(sj()?1.1:1);G.airJ--;if(sj())puff(G.x,G.y,8,'#3cf0c0',80);G.buf=0;SND.dbl();puff(G.x,G.y,6,'#c8f2ff',60);G.fullJump=false}}
+ if(G.swing||G.zip)input.tricks.length=0;
  while(input.tricks.length&&!G.demo)startTrick(input.tricks.shift());
+ if(!flying)tryGrab();
  // vertical
- if(flying){const ending=G.power.t<1.2,held=input.jump&&!ending;const flr=()=>{let f=1e9;for(const p of G.plats)if(G.x>=p.x-3&&G.x<=p.x+p.w+3&&(p.type!=='sign'||p.y>=G.y-6))f=Math.min(f,p.y);return f<1e9?f:Math.max(G.lastLand,G.y)};let fl0=flr();const tooHigh=G.y<fl0-115;
+ if(flying){const ending=G.power.t<1.2,held=input.jump&&!ending;const flr=()=>{let f=1e9;for(const p of G.plats){if(!(G.x>=p.x-3&&G.x<=p.x+p.w+3))continue;const py=surfY(p,G.x);if((p.type!=='sign'&&!p.thin)||py>=G.y-6)f=Math.min(f,py)}return f<1e9?f:Math.max(G.lastLand,G.y)};let fl0=flr();const tooHigh=G.y<fl0-115;
   const tv=held&&!tooHigh?-115:ending?95:tooHigh?30:48;G.vy+=(tv-G.vy)*Math.min(1,gdt*3);G.y+=G.vy*gdt;G.grounded=false;
   const pt=(held?-.62:-.12)+G.vy*.0012+Math.sin(clock*9)*.03;G.flyPitch=(G.flyPitch==null?-.3:G.flyPitch)+(pt-G.flyPitch)*Math.min(1,gdt*6);
   G.y=Math.max(G.y,G.camY+30);let floor=flr();
@@ -798,6 +896,8 @@ function update(dt){
   if(G.y>floor-1){G.y=floor-1;if(G.vy>0)G.vy=0;if(G.plats.some(p=>p.type!=='sign'&&G.x>=p.x-3&&G.x<=p.x+p.w+3&&Math.abs(p.y-floor)<1))G.lastLand=floor}
   G.windT=(G.windT||0)-dt;if(G.windT<=0){G.windT=.45;noise({f1:600,f2:1800,dur:.5,ft:'bandpass',q:.7,vol:.018,att:.15})}
   if(Math.random()<.5)G.parts.push({x:G.x+20+Math.random()*30,y:G.y-30+Math.random()*30,vx:-260-Math.random()*120,vy:(Math.random()-.5)*20,life:.25,col:Math.random()<.5?'#ffffff':'#c8f2ff',g:0,s:1})}
+ else if(G.swing){swingStep(gdt)}
+ else if(G.zip){zipStep(gdt)}
  else if(!G.grounded){
   const held=input.jump||G.fullJump||G.demo;
   G.vy+=GRAV*gdt*(G.vy<0&&!held?1.7:1)*(G.cele&&G.cele.t<G.cele.dur*.8?.55:1)*(sj()?.85:1);G.y+=G.vy*gdt;G.coyote-=dt;
@@ -806,18 +906,20 @@ function update(dt){
  // landing / support
  let support=null;
  G.sol=G.plats.concat(G.obs.filter(o=>o.solid&&!o.dead).map(o=>({x:o.x,y:o.y-o.h,w:o.w,ob:1,vg:o.vg})));
- if(!flying)for(const p of G.sol){const m=p.ob?2:3;if(G.x>=p.x-m&&G.x<=p.x+p.w+m){
-  if(G.grounded&&Math.abs(p.y-G.y)<1)support=p;
-  else if(!G.grounded&&G.vy>=0&&prevY<=p.y+2&&G.y>=p.y){support=p;land(p)}}}
- if(G.grounded&&!support){G.grounded=false;G.coyote=.09;G.vy=0}
+ if(!flying&&!G.swing&&!G.zip)for(const p of G.sol){const m=p.ob?2:3;if(G.x>=p.x-m&&G.x<=p.x+p.w+m){const sf=p.sy0!=null||p.sag,py=sf?surfY(p,G.x):p.y;
+  if(G.grounded&&Math.abs(py-G.y)<(sf?5:1)){if(!support||py<G.y+.5){support=p;if(sf){G.y=py;G.lastLand=py}}}
+  else if(!G.grounded&&G.vy>=0&&prevY<=(sf?surfY(p,prevX):p.y)+2+(sf?3:0)&&G.y>=py){support=p;land(p);if(sf){G.y=py;G.lastLand=py;if(p.type==='wire'&&!p.walked){p.walked=1;G.style+=25;pop('TIGHTROPE! +25','#ffe14a',G.x,G.y-44)}}}}}
+ if(G.grounded&&!support){const sp=G.supp;
+  if(sp&&sp.kick&&G.x>=sp.x+sp.w-3&&!G.dead){G.grounded=false;G.vy=-Math.min(360,Math.max(150,G.speed)*sp.kick);G.airJ=1;G.coyote=.12;G.style+=15;pop('RAMP! +15','#3cf0c0',G.x,G.y-44);sfx(220,660,.12,'square',.05);puff(G.x,G.y,6,'#ffffff',60)}
+  else{G.grounded=false;G.coyote=.09;G.vy=0}}
  G.supp=support;
  // walls
- if(!flying)for(const p of G.plats){if(p.type==='sign')continue;if(G.x+4>p.x&&prevX+4<=p.x+6&&G.x<p.x+10&&G.y>p.y+4){G.x=p.x-5;crash('SPLAT!');return}}
+ if(!flying&&!G.swing&&!G.zip)for(const p of G.plats){if(p.type==='sign'||p.thin)continue;const ey=p.sy0!=null?p.sy0:p.y;if(G.x+4>p.x&&prevX+4<=p.x+6&&G.x<p.x+10&&G.y>ey+4){G.x=p.x-5;crash('SPLAT!');return}}
  if(!flying)for(const p of G.plats){if(p.type!=='sign'||G.supp===p)continue;const inX=G.x+4>p.x&&G.x-4<p.x+p.w,top=G.y-22,bot=G.y;if(!inX||bot<=p.y+3||top>=p.y+18)continue;
   if(prevY-22>=p.y+15&&G.vy<0){G.vy=80;G.y=p.y+18+22;sfx(300,120,.08,'square',.05);puff(G.x,p.y+18,5,'#ffffff');continue}
   if(G.x-4<p.x+8&&!(G.vy>=0&&prevY<=p.y+2)){crash('BONK! HIGHWAY SIGN!');return}}
  if(!flying&&(G.lastType==='car'||G.lastType==='hwramp'||G.lastType==='sign')&&!G.grounded&&G.y>=RY){crash('HONK! HIT THE ROAD!');return}
- if(!flying&&(G.y>G.lastLand+110||G.y>STREET_Y+60)){crash(['board','grass','container'].includes(G.lastType)?'SPLASH!':'FELL!');return}
+ if(!flying&&!G.swing&&!G.zip&&(G.y>G.lastLand+110||G.y>STREET_Y+60)){crash(['board','grass','container'].includes(G.lastType)?'SPLASH!':'FELL!');return}
  // obstacles
  G.shield=Math.max(0,G.shield-dt);G.landT+=dt;
  const rbw=G.power&&G.power.type==='rainbow';
@@ -859,7 +961,7 @@ function update(dt){
  if(sj()&&!G.grounded&&!G.dead&&Math.random()<dt*50)G.parts.push({x:G.x-4+Math.random()*8,y:G.y-2+Math.random()*4,vx:-30-Math.random()*30,vy:10+Math.random()*20,life:.4,col:Math.random()<.5?'#3cf0c0':'#e8fff8',g:0,s:Math.random()<.3?2:1});
  // generation & cleanup
  if(!G.demo){while(G.genX<G.x+W+200&&!G.finalMade)gen()}
- G.plats=G.plats.filter(p=>p.x+p.w>G.x-200);G.obs=G.obs.filter(o=>o.x>G.x-200&&!(o.dead&&(o.st==='fly'&&o.t>2.5||o.st==='smash'&&o.t>1.5)));
+ G.plats=G.plats.filter(p=>p.x+p.w>G.x-200);G.ropes=G.ropes.filter(r=>r.x>G.x-300);G.zips=G.zips.filter(z=>z.x1>G.x-200);G.obs=G.obs.filter(o=>o.x>G.x-200&&!(o.dead&&(o.st==='fly'&&o.t>2.5||o.st==='smash'&&o.t>1.5)));
  // finish
  if(G.mode==='trip'&&!G.finished&&G.x>=G.finishX){G.finished=true;SND.win();for(let i=0;i<40;i++)G.parts.push({x:G.x+Math.random()*120,y:20+Math.random()*30,vx:(Math.random()-.5)*60,vy:Math.random()*30,life:2+Math.random(),col:['#ff4f7b','#ffd23f','#3cf0c0','#5ab8ff'][i%4],g:40,s:2})}
  if(G.finished){G.doneT+=dt;if(G.doneT>1.6&&state==='play')tripDone()}
@@ -1672,7 +1774,7 @@ function drawRat(o,cam){const xx=Math.round(o.x-cam),yy=Math.round(o.y),R=rmp('#
  fr(R.b,f(8)-(dir>0?0:2),yy-4,3,2);fr('#ff9aa8',f(11),yy-3,1,1);fr(K,f(9),yy-5,1,1);fr('#ff9aa8',f(7),yy-7,2,2);fr(K,f(7)-1,yy-8,1,1);
  fr(K,f(2),yy-1+st,1,1);fr(K,f(4),yy-st,1,1);fr(K,f(7),yy-1+st,1,1);fr(K,f(9),yy-st,1,1)}
 
-function drawPlat(p,cam){if(p.type==='sign')return drawGantry(p,cam);if(p.type==='car')return drawVehicle(p,cam);if(p.type==='hwramp')return drawRamp(p,cam);if(p.type==='cstreet')return drawChinatown(p,cam);if(p.type==='grass')return drawGrass(p,cam);if(p.type==='board')return drawBoard(p,cam);if(p.type==='container')return drawContainer(p,cam);if(p.type==='street')drawStreet(p,cam);else if(p.type==='plank')drawPlank(p,cam);else if(p.type==='fire')drawFire(p,cam);else drawRoof(p,cam)}
+function drawPlat(p,cam){if(p.type==='ramp')return drawSlope(p,cam);if(p.type==='wire')return drawWire(p,cam);if(p.type==='sign')return drawGantry(p,cam);if(p.type==='car')return drawVehicle(p,cam);if(p.type==='hwramp')return drawRamp(p,cam);if(p.type==='cstreet')return drawChinatown(p,cam);if(p.type==='grass')return drawGrass(p,cam);if(p.type==='board')return drawBoard(p,cam);if(p.type==='container')return drawContainer(p,cam);if(p.type==='street')drawStreet(p,cam);else if(p.type==='plank')drawPlank(p,cam);else if(p.type==='fire')drawFire(p,cam);else drawRoof(p,cam)}
 function ring(cx,cy,r,col){ctx.fillStyle=col;for(let a=0;a<TAU;a+=.35)ctx.fillRect(Math.round(cx+Math.cos(a)*r),Math.round(cy+Math.sin(a)*r),1,1)}
 const RMP={};
 function rmp(hex){let r=RMP[hex];if(r)return r;r={b:hex,d:mix(shade(hex,.42),'#2a0e3e',.45),s:mix(shade(hex,.72),'#7a1a6a',.22),l:mix(shade(hex,1.14),'#fff0c8',.12),h:mix(shade(hex,1.32),'#fdffb1',.5)};return RMP[hex]=r}
@@ -1837,10 +1939,13 @@ function handPose(){
  if(G.power&&G.power.type==='fly'&&!G.dead){const a=1.5,fl=Math.sin(clock*22)*.04;return{mode:'fly',legs:{f:[a+fl,.05],b:[a-.1-fl,.08]},rot:G.flyPitch==null?-.3:G.flyPitch,sx:1,thumbOut:true,thumb:{a:a-.3,bend:.15},digitsTop:true,ring:{e:1,a:a-.05+fl},pinky:{e:1,a:a-.12-fl}}}
  if(G.dead)return{mode:'crash',phase:clock*4,rot:G.rot,sx:1,thumb:{a:2.2+Math.sin(clock*20)*.5,bend:0}};
  const k=clamp((G.speed-60)/110,0,1);let p;
- if(G.grounded){const cr=G.landT<.18?(1-G.landT/.18)*clamp(.35+(G.landV-120)/700,.35,1):0;p={mode:'run',phase:G.phase,k,crouch:cr,rot:.05*Math.sin(G.phase*2)+.07*k,sx:1,thumb:{a:.35-Math.sin(G.phase)*lerp(.3,.65,k),bend:.3+.25*Math.max(0,-Math.cos(G.phase))}};
+ if(G.grounded&&G.supp&&G.supp.type==='wire'){p={mode:'run',phase:G.phase,k:k*.6,rot:Math.sin(clock*5)*.12,sx:1,thumb:{a:1.6+Math.sin(clock*5)*.6,bend:0}}}
+ else if(G.grounded){const cr=G.landT<.18?(1-G.landT/.18)*clamp(.35+(G.landV-120)/700,.35,1):0;p={mode:'run',phase:G.phase,k,crouch:cr,rot:.05*Math.sin(G.phase*2)+.07*k,sx:1,thumb:{a:.35-Math.sin(G.phase)*lerp(.3,.65,k),bend:.3+.25*Math.max(0,-Math.cos(G.phase))}};
   if(G.landT<.35){const w=1-G.landT/.35;p.thumb.a+=.9*w+Math.sin(G.landT*40)*.5*w;p.thumb.bend*=1-w*.8}
   const sup=(G.sol||[]).find(s=>Math.abs(s.y-G.y)<1&&G.x>=s.x-3&&G.x<=s.x+s.w+3);
   if(sup){const ed=sup.x+sup.w-G.x;if(ed<8){p.thumb.a=1.75+Math.sin(clock*28)*.45;p.thumb.bend=0}}}
+ else if(G.swing)p={mode:'air',rising:false,rot:-G.swing.a*.7-.2,sx:1,thumb:{a:2.4,bend:.1}};
+ else if(G.zip)p={mode:'air',rising:false,rot:-.35+Math.sin(clock*14)*.04,sx:1,thumb:{a:2.4,bend:.1}};
  else if(!G.trick&&clock-G.jumpT<.12&&G.vy<0)p={mode:'push',e:(clock-G.jumpT)/.12,rot:-.06,sx:1,thumb:{a:1.9,bend:.05}};
  else p={mode:G.trick?'tuck':'air',rising:G.vy<0,rot:G.rot,sx:G.sx,thumb:G.trick?{a:.35,bend:1}:(G.vy<0?{a:1.8,bend:.05}:{a:1.5+Math.sin(clock*17)*.4,bend:.1})};
  if(G.cele)applyCele(p,G.cele);
@@ -1889,7 +1994,7 @@ function fgDepth(cam){if(!G||G.demo&&state==='intro')return;const cy=G.camY||0,s
  if(NA>.25){const cols=['#ffb060','#ff4f7b','#3cf0ff','#ffd890','#b46bff'],sb=cam*1.25;for(let i=0;i<8;i++){const span=W+120,bx=((hash(i+90)*span*3-sb)%span+span)%span-60,by=20+hash(i+50)*90-cy*.15,r=8+hash(i+30)*14;
    const g=ctx.createRadialGradient(bx,by,0,bx,by,r);const c=cols[i%cols.length];g.addColorStop(0,c+'00');g.addColorStop(.6,c+'22');g.addColorStop(.85,c+'40');g.addColorStop(1,c+'00');ctx.globalAlpha=Math.min(.7,(NA-.25)*1.2);ctx.fillStyle=g;ctx.fillRect(bx-r,by-r,r*2,r*2)}ctx.globalAlpha=1}
  else{for(let i=0;i<14;i++){const mx=((hash(i+7)*W*2-cam*.9+Math.sin(clock*.5+i)*20)%W+W)%W,my=((hash(i+3)*H+clock*(4+i%3))%H);ctx.globalAlpha=.25+.25*Math.sin(clock*2+i);fr('#fff8d8',Math.round(mx),Math.round(my),1,1)}ctx.globalAlpha=1}}
-function runCues(cam){if(G.demo)return;for(let i=0;i<G.plats.length-1;i++){const a=G.plats[i],b=G.plats[i+1],gap=b.x-(a.x+a.w);if(gap<60||Math.abs(b.y-a.y)>4)continue;
+function runCues(cam){if(G.demo)return;for(let i=0;i<G.plats.length-1;i++){const a=G.plats[i],b=G.plats[i+1],gap=b.x-(a.x+a.w);if(a.nocue||gap<60||Math.abs(b.y-a.y)>4)continue;
  const ex=Math.round(a.x+a.w-cam);if(ex<-40||ex>W+140||G.x>a.x+a.w)continue;const mega=gap>=100,on=Math.sin(clock*(mega?10:7))>-.2,col=mega?'#ff4f7b':'#3cf0c0';
  for(let k=0;k<(mega?3:2);k++){const cx=ex-58+k*9+Math.round((clock*30)%9),cy=a.y-30;if(!on)continue;fr(K,cx-1,cy-4,6,9);for(let j=0;j<4;j++){fr(col,cx+j,cy-3+j,1,1);fr(col,cx+j,cy+3-j,1,1)}}
  if(on){ctx.save();ctx.translate(ex-36,a.y-40);ctx.scale(.75,.75);txt(mega?'RUN!! ▶▶':'RUN ▶▶',0,0,col,'center');ctx.restore()}}}
@@ -1900,8 +2005,10 @@ function render(){
  ctx.save();ctx.translate(0,-camY);
  for(const d of G.decor)drawSite(d,cam);
  drawHwyRoad(cam);
- for(const p of G.plats)drawPlat(p,cam);
+ for(const p of G.plats)if(p.type!=='wire'&&p.type!=='ramp')drawPlat(p,cam);
  wetPass(cam);
+ for(const p of G.plats)if(p.type==='wire'||p.type==='ramp')drawPlat(p,cam);
+ drawRopes(cam);drawZips(cam);
  roadworksFront(cam);
  for(let i=0;i<G.plats.length-1;i++){const a=G.plats[i],b=G.plats[i+1],drop=b.y-a.y;if(drop<18||a.type==='sign'||b.type==='sign')continue;const ex=Math.round(a.x+a.w-cam);if(ex<-20||ex>W+20)continue;
   const gx=ex+Math.max(6,Math.round((b.x-(a.x+a.w))/2)),by=a.y-24+Math.round(Math.sin(clock*6)*2),on=Math.sin(clock*8)>-.3;if(!on)continue;
