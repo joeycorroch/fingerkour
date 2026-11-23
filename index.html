@@ -884,8 +884,62 @@ function vgrad(x,y,w,h,top,bot){if(w<=0||h<=0)return;const g=ctx.createLinearGra
 function rgbaOf(k,a){const c=pal[k];return`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`}
 function glow(x,y,r,col){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}
 const SUNX=150;
+// ---------- lighting: ray-cast shadows + screen-space volumetric light ----------
+let RAYOCC=null,sEndTmp=null,RAYNEXT=[],RAYPREV=[];const HILLT=new Int16Array(200);
+function lightDir(){// shadow slope (px down per px right) and strength, from time of day; sun sits left so shadows fall right
+ const t=palTarget,cl=G&&G.weather&&G.weather!=='clear'?G.wAmt||0:0;
+ const k=t==='night'?.9:t==='sunset'||t==='dawn'?.34:.62,a=(t==='night'?.26:t==='sunset'?.56:t==='dawn'?.5:.48)*(1-cl*.55);return{k,a}}
+function castShadow(cv,sIn,str,skip){// 2D ray cast: march a light line across the silhouette; pixels under the line are occluded
+ const w=cv.width,h=cv.height;if(!w||!h)return null;const x2=cv.getContext('2d');let d;try{d=x2.getImageData(0,0,w,h).data}catch(e){return null}
+ const {k,a}=lightDir(),A=a*str;if(A<.02)return null;const top=new Int16Array(w);
+ const op=(x,y)=>d[(y*w+x)*4+3]>200,t0=new Int16Array(w);
+ for(let x=0;x<w;x++){let y=0;for(;y<h-4;y++)if(op(x,y)&&op(x,y+1)&&op(x,y+2)&&op(x,y+3)&&op(x,y+4))break;t0[x]=y>=h-4?h:y}
+ for(let x=0;x<w;x++){let m=0;for(let j=-3;j<=3;j++){const v=t0[Math.max(0,Math.min(w-1,x+j))];if(v>m)m=v}top[x]=m}// opening: drop wires, poles, antennas
+ const sc=[22,10,40],sh=pal.sky2;// shadow tint: deep violet nudged toward sky (bounce light)
+ const tc=[Math.round(sc[0]*.7+sh[0]*.12),Math.round(sc[1]*.7+sh[1]*.1),Math.round(sc[2]*.75+sh[2]*.14)],rgb=tc.join(',');
+ let S=sIn&&sIn.S!=null?sIn.S:1e4,cx=sIn&&sIn.cx!=null?sIn.cx:-1e4;const st=skip|0,sx0=w-2*st-1;let snap=null;
+ x2.save();x2.globalCompositeOperation='source-atop';
+ const ao=`rgba(${rgb},`;
+ for(let x=0;x<w;x++){if(x===sx0+1&&!snap)snap={S,cx:cx-(sx0+1)};const t=top[x];if(t>=h){S=Math.min(S+k,1e4);continue}
+  if(t<=S){S=t;cx=x}else{S+=k;if(t<=S){S=t;cx=x}}
+  if(t>S+.5){const y0=Math.max(t,Math.floor(S)),dist=x-cx,pen=Math.min(9,2+dist*.07);
+   // penumbra: soft dithered edge that widens with distance from the caster
+   for(let i=0;i<pen;i++){const f=(i+1)/(pen+1);x2.fillStyle=ao+(A*f).toFixed(3)+')';x2.fillRect(x,y0+i,1,1)}
+   const fade=Math.max(.55,1-dist*.0025);x2.fillStyle=ao+(A*fade).toFixed(3)+')';x2.fillRect(x,y0+Math.ceil(pen),1,h)}}
+ // ambient occlusion where a lower roof meets a taller wall, and under the silhouette edge
+ for(let x=1;x<w-1;x++){const t=top[x];if(t>=h)continue;
+  const L=top[x-1],R=top[x+1];
+  if(L<t-5)for(let j=0;j<4&&x+j<w;j++){x2.fillStyle=ao+((.22-j*.05)*str).toFixed(3)+')';x2.fillRect(x+j,t,1,h)}
+  if(R<t-5)for(let j=0;j<4&&x-j>=0;j++){x2.fillStyle=ao+((.22-j*.05)*str).toFixed(3)+')';x2.fillRect(x-j,t,1,h)}}
+ x2.restore();
+ return snap||{S,cx:cx-w}}
+const GR={m:null,a:null,b:null,f:0,lastKey:''};
+function godRays(sx,sy,night,low){// screen-space volumetric light scattering (radial ray march) behind the playfield
+ if(!RAYOCC)return;const occ=RAYOCC.concat(RAYPREV);RAYOCC=null;RAYPREV=RAYNEXT;RAYNEXT=[];
+ const cl=G&&G.weather&&G.weather!=='clear'?G.wAmt||0:0;let I=(night?.45:low?.95:.8)*(1-cl*.75);if(I<.03)return;
+ const RW=192,RH=108,s=.5;
+ if(GR.src&&(++GR.f&1)){ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=I*(.85+.15*Math.sin(clock*.7));ctx.imageSmoothingEnabled=true;ctx.drawImage(GR.src,0,0,W,H);ctx.restore();ctx.imageSmoothingEnabled=false;return}
+ if(!GR.m){for(const n of['m','a','b']){const c=document.createElement('canvas');c.width=RW;c.height=RH;GR[n]=c}}
+ const m=GR.m.getContext('2d'),px=sx*s,py=sy*s;
+ // 1) light source buffer: bright sky around the sun, everything solid cuts it
+ m.globalCompositeOperation='source-over';m.clearRect(0,0,RW,RH);
+ const col=night?[150,180,255]:low?[255,170,90]:[255,236,180];
+ const g=m.createRadialGradient(px,py,0,px,py,low?40:32);g.addColorStop(0,`rgba(${col},1)`);g.addColorStop(.3,`rgba(${col},.85)`);g.addColorStop(.7,`rgba(${col},.25)`);g.addColorStop(1,`rgba(${col},0)`);m.fillStyle=g;m.fillRect(0,0,RW,RH);
+ m.globalCompositeOperation='destination-out';m.imageSmoothingEnabled=true;
+ for(const o of occ){m.globalAlpha=o[3];if(o[0])m.drawImage(o[0],o[1]*s,o[2]*s,o[0].width*s,o[0].height*s);else{m.fillStyle='#000';m.fillRect(o[1]*s,o[2]*s,o[4]*s,o[5]*s)}}
+ m.globalAlpha=1;m.fillStyle='#000';for(let i=0;i<RW;i++){const t=HILLT[i];if(t)m.fillRect(i,t*s,1,RH)}
+ // 2) radial blur toward the light by repeated doubling: 2^5 = 32 ray samples per pixel
+ let src=GR.m,dst=GR.a;const f=low?1.05:1.045;
+ for(let p=0;p<5;p++){const sc=Math.pow(f,1<<p),d=dst.getContext('2d');d.setTransform(1,0,0,1,0,0);d.globalCompositeOperation='source-over';d.globalAlpha=1;d.clearRect(0,0,RW,RH);
+  d.globalAlpha=.5;d.drawImage(src,0,0);d.globalCompositeOperation='lighter';d.setTransform(sc,0,0,sc,px*(1-sc),py*(1-sc));d.drawImage(src,0,0);d.setTransform(1,0,0,1,0,0);d.globalAlpha=1;
+  src=dst;dst=dst===GR.a?GR.b:GR.a}
+
+ GR.src=src;
+ // 3) composite: soft additive shafts (smooth), clipped to the background
+ ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=I*(.85+.15*Math.sin(clock*.7));ctx.imageSmoothingEnabled=true;ctx.drawImage(src,0,0,W,H);ctx.restore();ctx.imageSmoothingEnabled=false}
+
 const CLC={};let CLN=0;
-function cloudPix(cx,cy,c){const key=q8(c);let cc=CLC[key];if(!cc){if(++CLN>40){for(const k in CLC)delete CLC[k];CLN=1}cc=document.createElement('canvas');cc.width=48;cc.height=30;const m=ctx;ctx=cc.getContext('2d');try{cloudPix0(12,16,c)}finally{ctx=m}CLC[key]=cc}ctx.drawImage(cc,Math.round(cx)-12,Math.round(cy)-16)}
+function cloudPix(cx,cy,c){const key=q8(c);let cc=CLC[key];if(!cc){if(++CLN>40){for(const k in CLC)delete CLC[k];CLN=1}cc=document.createElement('canvas');cc.width=48;cc.height=30;const m=ctx;ctx=cc.getContext('2d');try{cloudPix0(12,16,c)}finally{ctx=m}CLC[key]=cc}ctx.drawImage(cc,Math.round(cx)-12,Math.round(cy)-16);if(RAYOCC)RAYOCC.push([cc,Math.round(cx)-12,Math.round(cy)-16,.55])}
 function cloudPix0(cx,cy,c){const B=q8(c),L=q8(c.map(v=>Math.min(255,v*1.06+16))),D=q8(c.map(v=>v*.8)),O=q8(c.map(v=>v*.6));
  const P2=[[0,0,6],[8,-3,8],[18,0,6],[11,2,6]];cx=Math.round(cx);cy=Math.round(cy);
  for(const[a,b,r]of P2){pcirc(cx+a+1,cy+b+1,r+1,O);pcirc(cx+a,cy+b,r+1,O)}fr(O,cx-7,cy,33,8);
@@ -896,8 +950,8 @@ function cloudPix0(cx,cy,c){const B=q8(c),L=q8(c.map(v=>Math.min(255,v*1.06+16))
 const LAYC={};
 function layerChunks(name,s,key,fn,y0,alpha){const CW=128,HH=230;let L=LAYC[name];if(!L||L.key!==key){if(L)for(const k in L.c)L.c[k].width=0;L=LAYC[name]={key,c:{}}}
  const c0=Math.floor(s/CW),c1=Math.floor((s+W)/CW);if(alpha!=null)ctx.globalAlpha=alpha;
- for(let c=c0;c<=c1;c++){let cv2=L.c[c];if(!cv2){cv2=L.c[c]=document.createElement('canvas');cv2.width=CW;cv2.height=HH;const m=ctx;ctx=cv2.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.setTransform(1,0,0,1,0,-(H-170));try{fn(c*CW,CW)}finally{ctx=m}}
-  ctx.drawImage(cv2,c*CW-s,y0)}
+ for(let c=c0;c<=c1;c++){let cv2=L.c[c];if(!cv2){cv2=L.c[c]=document.createElement('canvas');cv2.width=CW;cv2.height=HH;const m=ctx;ctx=cv2.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.setTransform(1,0,0,1,0,-(H-170));try{fn(c*CW,CW)}finally{ctx=m}if(name==='mid'){const pv=L.c[c-1];cv2.sEnd=castShadow(cv2,pv&&pv.sEnd,.75)}}
+  ctx.drawImage(cv2,c*CW-s,y0);if(RAYOCC&&name==='mid')RAYOCC.push([cv2,c*CW-s,y0,1])}
  ctx.globalAlpha=1;for(const k in L.c)if(+k<c0-1||+k>c1+1){L.c[k].width=0;delete L.c[k]}}
 function midSky(s2,o2,Wd,night){
  const slot=22,mc=pal.mid,MB=q8(mc),ML=q8(mc.map((v,j)=>lerp(v,pal.sky2[j],.35))),MD=q8(mc.map(v=>v*.72)),MO=q8(mc.map(v=>v*.55)),MW=P('midWin');
@@ -922,7 +976,7 @@ function midSky(s2,o2,Wd,night){
 }
 function drawBG(cam){
  const cy=G?G.camY:0,oy=f=>Math.round(-cy*f);
- dsky(0,H,pal.sky1,pal.sky2,6);
+ dsky(0,H,pal.sky1,pal.sky2,6);RAYOCC=[];
  const night=palTarget==='night',low=palTarget==='sunset'||palTarget==='dawn';
  if(night){for(let i=0;i<60;i++){const sx=((hash(i)*W*2-cam*.02)%W+W)%W,sy=hash(i+77)*110+oy(.02);ctx.fillStyle=(Math.sin(clock*3+i)>.6)?'#ffffff':'#b8b8ff';ctx.fillRect(sx|0,sy|0,1,1);if(hash(i+5)>.9&&Math.sin(clock*3+i)>.6){ctx.fillRect((sx|0)-1,sy|0,3,1);ctx.fillRect(sx|0,(sy|0)-1,1,3)}}}
  const sunY=(low?96:44)+oy(.04),sr=low?20:12;glow(SUNX,sunY,sr*5,rgbaOf('sun',night?.18:.45));
@@ -934,7 +988,7 @@ function drawBG(cam){
  // far hills with rim light, tree bumps and dithered depth
  const s1=cam*.08,o1=oy(.12),fc=pal.far,FB=q8(fc),FL=q8(fc.map((v,j)=>lerp(v,pal.sky2[j],.45))),FD=q8(fc.map(v=>v*.82));
  for(let x=0;x<W;x+=2){const u=x+s1;const h=62+18*Math.sin(u*.012)+10*Math.sin(u*.033+1)+4*Math.sin(u*.09),ty=Math.round(H-h-10+o1);
-  fr(FB,x,ty,2,H);fr(FL,x,ty,2,1);if(hash(Math.floor(u/2))<.18){fr(FD,x,ty-2,2,2);fr(FL,x,ty-3,1,1)}}
+  fr(FB,x,ty,2,H);fr(FL,x,ty,2,1);HILLT[x>>1]=ty;if(hash(Math.floor(u/2))<.18){fr(FD,x,ty-2,2,2);fr(FL,x,ty-3,1,1)}}
  ctx.fillStyle=dpat(FD,6);ctx.fillRect(0,Math.round(H-60+o1),W,H);
  dhaze(Math.round(H*.5+o1),70,q8(pal.sky2),6);
  // mid skyline: outlined pixel buildings with rooftop props
@@ -943,6 +997,7 @@ function drawBG(cam){
   layerChunks('mid',Math.round(s2),key,(u0,cw)=>midSky(u0,0,cw,night),Math.round(H-170+o2))}
  if(G){drawTreeLine(o2,G.envPark||0,cam);drawHarbour(o2,G.envDock||0,cam);drawSea(o2,G.envSea||0)}
  dhaze(Math.round(H*.6+o2),60,q8(pal.sky2),5);
+ godRays(SUNX,(low?96:44)+oy(.04),night,low);
  // telegraph poles: shaded timber with crossarms and insulators
  const s3=cam*.6,ps=150,o3=oy(.55),nc=pal.near,NB=q8(nc),NL=q8(nc.map(v=>Math.min(255,v*1.5+20))),NO=q8(nc.map(v=>v*.6));
  const poleA=G?1-Math.max(G.envSea||0,G.envDock||0,G.envHwy||0)*.85:1;ctx.globalAlpha=poleA;
@@ -1028,7 +1083,7 @@ function seaGlitter(x0,x1,y0,y1){if(palTarget==='night'&&NA>.7)return;const a=(1
  ctx.globalAlpha=1}
 // rooftop buildings with material variety, coping, AO, stains and sills
 const ROOFCOL=['#8a5a6a','#a86a52','#7a6a8a','#9a8a72','#6a7a92'];
-function drawRoof(p,cam){const x=Math.round(p.x-cam),y=Math.round(p.y),w=p.w;if(x>W||x+w<0)return;
+function drawRoof(p,cam){const x=Math.round(p.x-cam),y=Math.round(p.y),w=p.w;if(x>W||x+w<0)return;if(RAYNEXT)RAYNEXT.push([null,x,y,1,w,VB-y]);
  const hv=p.v||hash(Math.floor(p.x)),base=mix(ROOFCOL[Math.floor(hv*ROOFCOL.length)],q8(pal.roof),.35),B=rmp(base),tex=hv<.33?'brick':hv<.66?'panel':'block';
  fr(K,x-1,y-1,w+2,VB-y+1);fr(B.b,x,y,w,VB-y);texture(x,y+5,w,VB-y-5,1,tex);
  // sunlit left edge, shaded right side
@@ -1253,18 +1308,19 @@ const FCH=256,FTOP=184;let FCN=0;
 function facadeKey(){return Math.round(NA*8)+'|'+palTarget+'|'+(G&&G.weather||'')}
 function drawFacadeCached(p,x,y,drawFn,pad,noHaze){pad=pad||0;const fw=p.fw||p.w,key=facadeKey();if(!p._fc||p._fk!==key||p._ffw!==fw){p._fc={};p._fk=key;p._ffw=fw}
  const c0=Math.max(0,Math.floor((-x)/FCH)),c1=Math.min(Math.floor((fw-1)/FCH),Math.floor((W-x)/FCH));
- for(let c=c0;c<=c1;c++){let ch=p._fc[c];if(!ch){ch=p._fc[c]=buildChunk(p,c,y,drawFn,pad,noHaze)}const sx=x+c*FCH;ctx.drawImage(ch.cv,sx-pad,y-FTOP);
+ for(let c=c0;c<=c1;c++){let ch=p._fc[c];if(!ch){ch=p._fc[c]=buildChunk(p,c,y,drawFn,pad,noHaze)}const sx=x+c*FCH;ctx.drawImage(ch.cv,sx-pad,y-FTOP);if(RAYNEXT)RAYNEXT.push([ch.cv,sx-pad,y-FTOP,1]);
   for(const L of ch.lan)lantern(sx+L[0],y-FTOP+L[1],Math.sin(clock*2+L[0]*.37)*1.2)}
  for(const k in p._fc){const c=+k;if(x+(c+1)*FCH<-20){p._fc[k].cv.width=0;delete p._fc[k]}}}
 const FPOOL=[];
 function buildChunk(p,c,y,drawFn,pad,noHaze){const cv2=document.createElement('canvas'),fw=p.fw||p.w;cv2.width=Math.min(FCH,fw-c*FCH)+pad*2;cv2.height=FTOP;const cx2=cv2.getContext('2d');cx2.imageSmoothingEnabled=false;
  const m=ctx,mc=curCam,wx0=Math.round(p.x)+c*FCH-pad;ctx=cx2;curCam=wx0;LREC=[];let lan;
  try{drawFn(p,-c*FCH+pad,FTOP)}finally{ctx=m;curCam=mc;lan=LREC.filter(L=>L[0]>=pad&&L[0]<FCH+pad).map(L=>[L[0]-pad,L[1]]);LREC=null}
- if(noHaze)return{cv:cv2,lan};
+ {const pv=p._fc&&p._fc[c-1];sEndTmp=castShadow(cv2,pv&&pv.sEnd,1,pad)}
+ if(noHaze)return{cv:cv2,lan,sEnd:sEndTmp};
  cx2.globalCompositeOperation='source-atop';const sk=pal.sky2;cx2.fillStyle=`rgba(${sk[0]|0},${sk[1]|0},${sk[2]|0},${(.2-NA*.08).toFixed(3)})`;cx2.fillRect(0,0,cv2.width,FTOP);
  cx2.fillStyle=`rgba(24,10,44,${(.1+NA*.1).toFixed(3)})`;cx2.fillRect(0,0,cv2.width,FTOP);
  const g=cx2.createLinearGradient(0,FTOP-60,0,FTOP);g.addColorStop(0,'rgba(24,10,44,0)');g.addColorStop(1,`rgba(24,10,44,${(.34+NA*.12).toFixed(3)})`);cx2.fillStyle=g;cx2.fillRect(0,FTOP-60,cv2.width,60);cx2.globalCompositeOperation='source-over';
- return{cv:cv2,lan}}
+ return{cv:cv2,lan,sEnd:sEndTmp}}
 // ---------- varied buildings ----------
 const DEF=[];
 function tone(hex){const q=Math.round(NA*8)/8;return q<.05?hex:mix(hex,'#2a1a4a',q*.34)}
@@ -1718,7 +1774,6 @@ function render(){
  for(const p of G.pops){ctx.globalAlpha=Math.min(1,p.life*2);txt(p.text,Math.round(p.x-cam),Math.round(p.y),p.col,'center');ctx.globalAlpha=1}
  ctx.restore();
  if(G.speed>150&&!G.dead){ctx.fillStyle='rgba(255,255,255,.55)';for(let i=0;i<6;i++){const ly=(hash(i+Math.floor(clock*12)*7)*H)|0,lx=(hash(i*3+Math.floor(clock*12))*W)|0;ctx.fillRect(lx,ly,14+i*3,1)}}
- sunRays();
  drawWeatherScreen();
  postGrade();
  // overlays
@@ -1943,7 +1998,6 @@ function introCarS(x,y,t,st,spin){const R=rmp('#e8453c'),GL=rmp('#9ad8f0'),D=rmp
 function introS1(t){const carX=196,carY=190;const drive=t>3.5?70*(t-3.5)*(t-3.5):0;curCam=Math.round(t*4+drive);VB=H;drawBG(curCam);
  for(let i=0;i<4;i++){const bx=Math.round(((t*38+i*17)%480)-40),by=Math.round(34+i*5+Math.sin(t*5+i)*3),up=Math.sin(t*14+i*1.7)>0;fr(K,bx,by+(up?0:1),2,1);fr(K,bx+2,by+1,1,1);fr(K,bx+3,by+(up?0:1),2,1)}
  drawStreet({x:-60,y:150,w:1600,fw:1600,type:'street',v:.37},curCam);
- sunRays();
  fr(P('road'),0,164,W,H);fr(K,0,164,W,1);fr(q8(pal.road.map(v=>v*1.6+20)),0,165,W,1);ctx.fillStyle=anchor(dpat(q8(pal.road.map(v=>v*1.3+10)),2));ctx.fillRect(0,166,W,H);
 
  const walk=clamp(t/2.3,0,1),mx=lerp(-20,carX+41,walk),bx=lerp(-38,carX+20,walk),inT=clamp((t-2.3)/.55,0,1);
