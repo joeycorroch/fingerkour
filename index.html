@@ -612,6 +612,7 @@ function drawHwyRoad(cam){const a=G.envHwy||0;if(a<.02)return;ctx.globalAlpha=a;
  for(let k=Math.floor((o-60)/160);k<=Math.floor((o+W+60)/160);k++){const lx=Math.round(k*160-o+40),top=yR-86;fr(K,lx-1,top,4,yR-16-top);fr('#5a5a72',lx,top,2,yR-16-top);fr(K,lx,top-2,22,3);fr('#5a5a72',lx+1,top-1,20,1);fr(K,lx+18,top,8,3);fr('#ffd890',lx+19,top+1,6,2);
   neonGlow(lx+22,top+2,24,12,'#ffb060',.4+NA*.5);lightPool(lx+22,RY+2,34,5,'#ffb060',(.25+NA*.5)*.6);ctx.globalAlpha=a*.06*(.4+NA);ctx.fillStyle=dpat('#ffd29a',4);ctx.beginPath();ctx.moveTo(lx+19,top+3);ctx.lineTo(lx+25,top+3);ctx.lineTo(lx+52,RY);ctx.lineTo(lx-8,RY);ctx.fill();ctx.globalAlpha=a}
  for(const p of G.plats)if(p.type==='sign')gantryPoles(p,cam);
+ {const rain=(G.weather==='rain'||G.weather==='storm')?G.wAmt:0;ctx.save();ctx.globalCompositeOperation='screen';wetMirror(-4,W+4,yR-1,Math.min(24,VB-yR),a*Math.max(.5,rain*.8),null,rain);ctx.restore()}
  ctx.globalAlpha=1}
 
 function bigGap(d,base){if(G.demo)return base;const bs=105+45*(G.mode==='trip'?TRIPS[G.trip].diff:Math.min(1,G.genX/25000)),r=rng();
@@ -1305,18 +1306,20 @@ function neonBox(x,y,w,h,col,seed,vert){if(NREC)NREC.push([x,y,w,h,col,seed]);co
  neonGlow(x+w/2,y+h/2,w+10,h+10,col,ga*.8);if(!NREC)neonChase(x,y,w,h,col,seed)}
 
 // ---------- palette cycling + raster (line) effects ----------
+const SNAP=document.createElement('canvas');SNAP.width=W;SNAP.height=H;const SNX=SNAP.getContext('2d');let SNF=-1;
+function snap(y0,y1){y0=Math.max(0,(y0|0));y1=Math.min(H,y1==null?H:Math.ceil(y1));if(y1<=y0)return SNAP;SNX.clearRect(0,y0,W,y1-y0);SNX.drawImage(cv,0,y0,W,y1-y0,0,y0,W,y1-y0);return SNAP}
 const CYC=(a,spd,off)=>a[(((Math.floor(clock*spd)+off)%a.length)+a.length)%a.length];
 function waterCycle(x0,x1,y0,y1,ramp,seed,spd,rows){// flowing highlight dashes whose colours rotate through a ramp (classic colour cycling)
  x0=Math.max(-4,x0|0);x1=Math.min(W+4,x1|0);if(x1<=x0)return;const n=Math.min(rows||10,Math.floor((y1-y0)/2));
  for(let r=0;r<n;r++){const yy=y0+r*2,st=9+((r*3)%5),ph=Math.floor(hash(seed+r)*st);
   for(let xx=x0-((x0-ph)%st+st)%st;xx<x1;xx+=st){const c=CYC(ramp,spd,-r+((Math.floor((xx-x0+seed)/st))&3));if(c)fr(c,Math.max(x0,xx),yy,Math.min(3,x1-xx),1)}}}
 function rowReflect(hy,depth,a,amp){// mirror the rows above a horizon into water with a per-line sine wobble
- if(ctx!==cv.getContext('2d')||a<=.02)return;const n=Math.min(depth,H-hy-1);ctx.save();ctx.imageSmoothingEnabled=false;
+ if(ctx!==cv.getContext('2d')||a<=.02)return;const n=Math.min(depth,H-hy-1),S=snap(hy-n*1.4-2,hy);ctx.save();ctx.imageSmoothingEnabled=false;
  for(let k=0;k<n;k+=1){const sy=hy-1-Math.floor(k*1.4);if(sy<0)break;const dx=Math.round(Math.sin(k*.8+clock*3.2)*(amp+k*.04));
-  ctx.globalAlpha=a*(1-k/n)*(k%2?.75:1);ctx.drawImage(cv,0,sy,W,1,dx,hy+1+k,W,1)}ctx.restore()}
+  ctx.globalAlpha=a*(1-k/n)*(k%2?.75:1);ctx.drawImage(S,0,sy,W,1,dx,hy+1+k,W,1)}ctx.restore()}
 function heatHaze(y0,y1,amt){// gentle horizontal shimmer on a band of background lines
- if(amt<=.02||ctx!==cv.getContext('2d'))return;ctx.save();ctx.imageSmoothingEnabled=false;
- for(let y=Math.max(0,y0|0);y<Math.min(H,y1|0);y+=2){const dx=Math.round(Math.sin(y*.55+clock*2.2)*amt);if(dx)ctx.drawImage(cv,0,y,W,2,dx,y,W,2)}ctx.restore()}
+ if(amt<=.02||ctx!==cv.getContext('2d'))return;const S=snap(y0,y1);ctx.save();ctx.imageSmoothingEnabled=false;
+ for(let y=Math.max(0,y0|0);y<Math.min(H,y1|0);y+=2){const dx=Math.round(Math.sin(y*.55+clock*2.2)*amt);if(dx)ctx.drawImage(S,0,y,W,2,dx,y,W,2)}ctx.restore()}
 let NREC=null;
 function neonChase(x,y,w,h,col,seed){// marquee lights chasing round a sign's border + rare flicker
  const per=2*(w+h)-4,lit=CYC(['#ffffff',col,col],1,0),sp=Math.floor(clock*10+seed);
@@ -1371,6 +1374,22 @@ function laundry(x,y,w){// washing line across an alley, clothes flap in the win
  const ly=y-64;fr(K,x-3,ly-1,2,3);fr(K,x+w+1,ly-1,2,3);for(let i=0;i<=w+4;i++){const sg=Math.round(Math.sin(i/(w+4)*PI)*2);fr('#2a2230',x-2+i,ly+sg,1,1)}
  const CL=['#e8e4dc','#c8453c','#3d6fe0','#f4d23f','#7ad0a8'];for(let k=0;k<Math.max(1,Math.floor(w/7));k++){const cx=x+1+k*7,sg=Math.round(Math.sin((cx-x+2)/(w+4)*PI)*2),c=CL[Math.floor(hash(x*3+k)*CL.length)],fl=Math.sin(clock*5+k*1.3+x)>0;
   fr(K,cx-1,ly+sg,6,1);fr(c,cx,ly+sg+1,4,fl?4:5);if(fl)fr(c,cx+(Math.sin(clock*5+k)>.5?1:0),ly+sg+5,3,1);fr('rgba(0,0,0,.18)',cx+3,ly+sg+1,1,4)}}
+
+// ---------- wet ground: mirrored, rippling reflections of everything above the street ----------
+function wetMirror(x0,x1,y,R,amt,skip,rain){if(ctx!==cv.getContext('2d'))return;x0=Math.max(0,x0|0);x1=Math.min(W,x1|0);if(x1-x0<2||amt<.03)return;const f=ctx.getTransform().f;if(SNF!==clock){snap(y-1-R*1.15+f-2,y+f);SNF=clock}
+ for(let k=1;k<R;k+=(k<10?1:2)){if(skip&&k>=skip[0]&&k<skip[1])continue;const sy=Math.round(y-1-k*1.15+f);if(sy<0)break;const dx=Math.round(Math.sin(k*.9+clock*(3+(rain||0)*3))*(.5+k*.05));
+  ctx.globalAlpha=amt*(1-.75*k/R)*(k<10&&(k&1)?.55:1);ctx.drawImage(SNAP,x0,sy,x1-x0,1,x0+dx,y+k,x1-x0,1)}}
+function wetPass(cam){if(!G||ctx!==cv.getContext('2d'))return;const rain=(G.weather==='rain'||G.weather==='storm')?G.wAmt:0,ct=G.envCT||0,hw=G.envHwy||0;
+ SNF=-1;ctx.save();ctx.globalCompositeOperation='screen';ctx.imageSmoothingEnabled=false;const mirror=(a,b,c,d,e,g)=>wetMirror(a,b,c,d,e,g,rain);
+ for(const p of G.plats){if(p.type!=='street'&&p.type!=='cstreet')continue;const x0=p.x-cam,x1=p.x+p.w-cam;if(x1<0||x0>W)continue;
+  const amt=Math.max(rain*.75,p.type==='cstreet'?ct*.62:0,NA>.6?NA*.15:0);mirror(x0,x1,p.y,Math.min(30,VB-p.y),amt,[9,12])}
+ ctx.restore();
+ // raindrop ripples on the wet surfaces
+ if(rain>.1){ctx.globalAlpha=Math.min(1,rain);const rc=q8(pal.sky2.map(v=>Math.min(255,v*.4+170)));
+  for(const p of G.plats){if(p.type!=='street'&&p.type!=='cstreet'&&p.type!=='grass'&&p.type!=='board')continue;const x0=Math.max(0,p.x-cam),x1=Math.min(W,p.x+p.w-cam);if(x1-x0<4)continue;
+   for(let i=0;i<10;i++){const t=clock*2.2+i*.31,sl=Math.floor(t),q=t-sl,px=Math.round(x0+hash(i*13+sl*7+Math.floor(p.x))*(x1-x0)),py=p.y+2+Math.floor(hash(i*5+sl*3)*6),r=1+Math.round(q*3);if(q>.85)continue;
+    fr(rc,px-r,py,1,1);fr(rc,px+r,py,1,1);if(r>1){fr(rc,px-r+1,py-1,r*2-1,1);if(q<.4)fr(rc,px,py,1,1)}}}
+  ctx.globalAlpha=1}}
 let LREC=null;
 function lantern(x,y,sw){if(LREC){LREC.push([x,y]);return}const R=rmp('#e8283a');x=Math.round(x+sw);fr('#3a2a1a',x,y-4,1,4);fr(K,x-4,y-1,9,10);fr(R.b,x-3,y,7,8);fr(R.h,x-3,y,7,1);fr(R.l,x-2,y+1,1,6);fr(R.s,x+2,y+1,1,6);fr(R.d,x-1,y+1,1,6);fr('#ffd23f',x-3,y-1,7,1);fr('#ffd23f',x-3,y+8,7,1);fr('#ffd23f',x,y+9,1,3);neonGlow(x,y+4,10,10,'#ff3a3a',.25+NA*.5)}
 const CTCOL=['#a8282a','#24705a','#b8822a','#7a2a5a'];
@@ -1844,6 +1863,7 @@ function render(){
  for(const d of G.decor)drawSite(d,cam);
  drawHwyRoad(cam);
  for(const p of G.plats)drawPlat(p,cam);
+ wetPass(cam);
  roadworksFront(cam);
  for(let i=0;i<G.plats.length-1;i++){const a=G.plats[i],b=G.plats[i+1],drop=b.y-a.y;if(drop<18||a.type==='sign'||b.type==='sign')continue;const ex=Math.round(a.x+a.w-cam);if(ex<-20||ex>W+20)continue;
   const gx=ex+Math.max(6,Math.round((b.x-(a.x+a.w))/2)),by=a.y-24+Math.round(Math.sin(clock*6)*2),on=Math.sin(clock*8)>-.3;if(!on)continue;
