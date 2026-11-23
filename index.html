@@ -604,7 +604,7 @@ function drawHwyRoad(cam){const a=G.envHwy||0;if(a<.02)return;ctx.globalAlpha=a;
  const M=rmp(mix('#a8a4b0',q8(pal.mid),.35));fr(K,sa,yR-17,sw,1);fr(M.b,sa,yR-16,sw,14);fr(M.h,sa,yR-16,sw,1);fr(M.s,sa,yR-6,sw,4);texture(sa,yR-15,sw,9,1,'concrete');
  for(let k=Math.floor((o-20)/30);k<=Math.floor((o+W+20)/30);k++){const mx=Math.round(k*30-o);fr('#ffb020',mx,yR-10,2,1)}
  fr(q8(pal.road.map(v=>v*.8)),sa,yR-2,sw,VB-yR+2);ctx.fillStyle=anchor(dpat(q8(pal.road.map(v=>v*1.15+8)),2));ctx.fillRect(sa,yR-2,sw,VB-yR+2);fr('#d8d4e0',sa,yR,sw,1);
- for(let k=Math.floor((o-40)/48);k<=Math.floor((o+W+40)/48);k++){const mx=Math.round(k*48-o);fr('#f4f0ea',mx,RY+6,24,2);fr('#e8c03a',mx,yR+3,26,1)}
+
  // street lights on the median
  for(let k=Math.floor((o-60)/160);k<=Math.floor((o+W+60)/160);k++){const lx=Math.round(k*160-o+40),top=yR-86;fr(K,lx-1,top,4,yR-16-top);fr('#5a5a72',lx,top,2,yR-16-top);fr(K,lx,top-2,22,3);fr('#5a5a72',lx+1,top-1,20,1);fr(K,lx+18,top,8,3);fr('#ffd890',lx+19,top+1,6,2);
   neonGlow(lx+22,top+2,24,12,'#ffb060',.4+NA*.5);lightPool(lx+22,RY+2,34,5,'#ffb060',(.25+NA*.5)*.6);ctx.globalAlpha=a*.06*(.4+NA);ctx.fillStyle=dpat('#ffd29a',4);ctx.beginPath();ctx.moveTo(lx+19,top+3);ctx.lineTo(lx+25,top+3);ctx.lineTo(lx+52,RY);ctx.lineTo(lx-8,RY);ctx.fill();ctx.globalAlpha=a}
@@ -953,7 +953,7 @@ function drawBG(cam){
  ctx.globalAlpha=1;
  // road
  const ry=ROAD+oy(1);if(ry<H){fr(P('road'),0,ry,W,H);fr(q8(pal.road.map(v=>v*1.6+20)),0,ry,W,1);ctx.fillStyle=anchor(dpat(q8(pal.road.map(v=>v*1.3+10)),2));ctx.fillRect(0,ry+1,W,H);
-  const s4=cam*1.15;for(let x=-((s4)%40);x<W;x+=40){fr(q8(pal.road.map(v=>v*.6)),Math.round(x),ry+9,18,1);fr(P('lane'),Math.round(x),ry+7,18,2)}}
+  }
 }
 const AWN=[['#e8453c','#fff4e8'],['#3d6fe0','#fff4e8'],['#21b38a','#fff4e8'],['#ffcc33','#5a3a10'],['#ff8ad8','#fff4e8']];
 function drawStreet(p,cam){
@@ -1945,7 +1945,7 @@ function introS1(t){const carX=196,carY=190;const drive=t>3.5?70*(t-3.5)*(t-3.5)
  drawStreet({x:-60,y:150,w:1600,fw:1600,type:'street',v:.37},curCam);
  sunRays();
  fr(P('road'),0,164,W,H);fr(K,0,164,W,1);fr(q8(pal.road.map(v=>v*1.6+20)),0,165,W,1);ctx.fillStyle=anchor(dpat(q8(pal.road.map(v=>v*1.3+10)),2));ctx.fillRect(0,166,W,H);
- for(let x=-((curCam*1)%40);x<W;x+=40){fr(q8(pal.road.map(v=>v*.6)),Math.round(x),208,18,1);fr(P('lane'),Math.round(x),206,18,2)}
+
  const walk=clamp(t/2.3,0,1),mx=lerp(-20,carX+41,walk),bx=lerp(-38,carX+20,walk),inT=clamp((t-2.3)/.55,0,1);
  {const t0=1.2,pgx=166-Math.round(t*4);if(t<t0){const peck=Math.sin(t*9)>.4;drawFlyer({x:pgx,y:150+(peck?1:0),ph:0,k:'bird'},0,'#8a8ea8','#9aa0b8','#ff9a3c',false)}
   else{const f=t-t0;drawFlyer({x:Math.round(pgx+f*80),y:Math.round(150-f*70-f*f*20),ph:0,k:'bird'},0,'#8a8ea8','#9aa0b8','#ff9a3c',true);if(f<.3)for(let i=0;i<3;i++)fr('#c8cce0',pgx+i*3,148-Math.round(f*30)-i,1,1)}}
