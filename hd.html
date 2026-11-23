@@ -1450,10 +1450,10 @@ const TEXHD=(()=>{const N=256,blot=fbmTile(N,N,64,5,11),fine=fbmTile(N,N,4,2,23)
  g.putImageData(id,0,0);return c})();
 function texPattern(x2,ox,oy){const p=x2.createPattern(TEXHD,'repeat');try{p.setTransform(new DOMMatrix().translate(-(((ox%256)+256)%256),-(((oy%256)+256)%256)))}catch(e){}return p}
 function hdTexture(cv,wx,str,streaks){// overlay real-looking grime/grain onto an opaque silhouette, plus rain streaks from roof edges
- const w=cv.width,h=cv.height;if(!w||!h)return;const x2=cv.getContext('2d');
+ const w=cv.width,h=cv.height;if(!w||!h)return;const x2=cv.getContext('2d');const RD=realism(x2,w,h,streaks?{bump:.42,max:24,tex:.1,ox:wx,ao:.35,sat:.9}:{bump:.3,max:14,tex:.08,ox:wx,sat:.88});
  const t=document.createElement('canvas');t.width=w;t.height=h;const tg=t.getContext('2d');tg.fillStyle=texPattern(tg,wx,0);tg.fillRect(0,0,w,h);tg.globalCompositeOperation='destination-in';tg.drawImage(cv,0,0);
  x2.save();x2.globalAlpha=str;x2.globalCompositeOperation='overlay';x2.drawImage(t,0,0);x2.restore();
- if(!streaks)return;let d;try{d=x2.getImageData(0,0,w,h).data}catch(e){return}
+ if(!streaks)return;const d=RD;if(!d)return;
  x2.save();x2.globalCompositeOperation='source-atop';
  for(let x=0;x<w;x++){let y=0;while(y<h-3&&d[(y*w+x)*4+3]<200)y++;if(y>=h-3)continue;const wxx=wx+x,cl=hash(Math.floor(wxx/7)*3.1),st=cl<.55?0:(cl-.55)*2.2*(.4+.6*hash(wxx*1.31));if(st<.05)continue;
   const len=18+Math.floor(hash(wxx*2.7)*70);for(let k=0;k<len;k+=3){const a=st*.4*Math.pow(1-k/len,1.6);if(a<.01)break;x2.fillStyle=`rgba(30,18,24,${a.toFixed(3)})`;x2.fillRect(x,y+2+k,1,3)}}
@@ -1461,6 +1461,20 @@ function hdTexture(cv,wx,str,streaks){// overlay real-looking grime/grain onto a
  const gg=x2.createLinearGradient(0,h-34,0,h);gg.addColorStop(0,'rgba(40,26,20,0)');gg.addColorStop(1,'rgba(40,26,20,.28)');x2.fillStyle=gg;x2.fillRect(0,h-34,w,34);x2.restore()}
 function liveTex(x,y,w,h,cam,str){if(w<=0||h<=0)return;ctx.save();ctx.globalAlpha=str;ctx.globalCompositeOperation='overlay';ctx.fillStyle=texPattern(ctx,cam,0);ctx.fillRect(x,y,w,h);ctx.restore()}
 // ---- volumetric clouds: fBm density, lit from the sun, soft edges ----
+
+// ---- realism filter: bump-mapped relief from luminance, warm key / cool fill light, material grain, soft AO ----
+const TEXD=(()=>{const g=TEXHD.getContext('2d');return g.getImageData(0,0,256,256).data})();
+function realism(x2,w,h,o){if(w<2||h<2)return;let id;try{id=x2.getImageData(0,0,w,h)}catch(e){return}const d=id.data,N=w*h,L=new Float32Array(N),A=new Uint8Array(N);
+ for(let i=0;i<N;i++){const j=i*4;A[i]=d[j+3]>40?1:0;L[i]=d[j]*.3+d[j+1]*.59+d[j+2]*.11}
+ const bk=o.bump||.4,bm=o.max||26,tx=o.tex||0,ox=o.ox|0,oy=o.oy|0,gr=o.grade||0,sat=o.sat==null?.92:o.sat,ao=o.ao||0;
+ for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!A[i])continue;const j=i*4;
+  const ul=A[i-w-1]?L[i-w-1]:L[i]+18,dr=A[i+w+1]?L[i+w+1]:L[i]-22;let b=(ul-dr)*bk;b=b>bm?bm:b<-bm?-bm:b;
+  let occ=0;if(ao){const s4=(A[i-1]?L[i-1]:L[i])+(A[i+1]?L[i+1]:L[i])+(A[i-w]?L[i-w]:L[i])+(A[i+w]?L[i+w]:L[i]);occ=Math.max(0,L[i]-s4/4)*-ao}
+  const n=tx?(TEXD[(((y+oy)&255)*256+((x+ox)&255))*4]-128)/128*tx:0,g=gr?(.5-y/h)*gr:0;
+  let r=d[j],gg=d[j+1],bb=d[j+2];const lum=(r*.3+gg*.59+bb*.11);r=lum+(r-lum)*sat;gg=lum+(gg-lum)*sat;bb=lum+(bb-lum)*sat;
+  const m=1+n,k=b+g+occ;
+  d[j]=Math.max(0,Math.min(255,r*m+k*(k>0?1.08:.85)));d[j+1]=Math.max(0,Math.min(255,gg*m+k*(k>0?.98:.9)));d[j+2]=Math.max(0,Math.min(255,bb*m+k*(k>0?.8:1.15)))}
+ x2.putImageData(id,0,0);return d}
 const CLD={};
 function cloudHD(cx,cy,c,i){const v=i%5,key=q8(c)+v;let cc=CLD[key];if(!cc){if(Object.keys(CLD).length>60)for(const k in CLD)delete CLD[k];
   const Wc=96,Hc=46,n=fbmTile(Wc,Hc,24,5,v*17+3),n2=fbmTile(Wc,Hc,8,3,v*31+9);cc=document.createElement('canvas');cc.width=Wc;cc.height=Hc;const g=cc.getContext('2d'),id=g.createImageData(Wc,Hc),d=id.data;
@@ -1490,7 +1504,7 @@ function lantern(x,y,sw){if(LREC){LREC.push([x,y]);return}const R=rmp('#e8283a')
 const CTCOL=['#a8282a','#24705a','#b8822a','#7a2a5a'];
 
 // ---- readability: rim-lit obstacles + hazed facades ----
-const OBC=document.createElement('canvas');OBC.width=220;OBC.height=170;const obx=OBC.getContext('2d');
+const OBC=document.createElement('canvas');OBC.width=220;OBC.height=170;const obx=OBC.getContext('2d',{willReadFrequently:true});
 const OSC=document.createElement('canvas');OSC.width=220;OSC.height=170;const osx=OSC.getContext('2d');
 function obsRender(o,cam,x,rw,rh,bx,by){const main=ctx;obx.setTransform(1,0,0,1,0,0);obx.clearRect(0,0,rw,rh);obx.save();obx.beginPath();obx.rect(0,0,rw,rh);obx.clip();obx.setTransform(1,0,0,1,-bx,-by);
  ctx=obx;try{drawObs(o,cam)}finally{ctx=main;obx.restore()}}
@@ -1499,10 +1513,12 @@ function drawObsRim(o,cam){const x=Math.round(o.x-cam);if(x>W+40||x<-130)return;
  const rw=Math.min(220,o.w+56),rh=Math.min(170,o.h+64),bx=x-28,by=Math.round(o.y-o.h)-48,haz=!o.solid,inact=o.off,fk=facadeKey();
  let B=OBC,S=OSC;
  if(o._rc&&o._rc.k===fk){B=o._rc.b;S=o._rc.r}
- else{obsRender(o,cam,x,rw,rh,bx,by);
+ else if(HD&&ANIMK[o.k]&&o._ac&&o._ac.w===rw&&o._ac.h===rh&&clock-o._ac.t<1/24){B=o._ac.b;S=o._ac.r}
+ else{obsRender(o,cam,x,rw,rh,bx,by);if(HD)realism(obx,rw,rh,{bump:.5,max:30,tex:.16,ox:Math.round(o.x),grade:34,ao:.4,sat:.9});
   osx.globalCompositeOperation='copy';osx.drawImage(OBC,0,0,rw,rh,0,0,rw,rh);osx.globalCompositeOperation='source-in';osx.fillStyle=haz?'#ff3a5a':'#fff2b8';osx.fillRect(0,0,rw,rh);osx.globalCompositeOperation='source-over';
+  if(HD&&ANIMK[o.k]){let A2=o._ac;if(!A2||A2.w!==rw||A2.h!==rh){A2=o._ac={b:document.createElement('canvas'),r:document.createElement('canvas'),w:rw,h:rh};A2.b.width=A2.r.width=rw;A2.b.height=A2.r.height=rh}const bg=A2.b.getContext('2d'),rg=A2.r.getContext('2d');bg.clearRect(0,0,rw,rh);rg.clearRect(0,0,rw,rh);bg.drawImage(OBC,0,0,rw,rh,0,0,rw,rh);rg.drawImage(OSC,0,0,rw,rh,0,0,rw,rh);A2.t=clock;B=A2.b;S=A2.r}
   if(!ANIMK[o.k]&&x<=W&&x>=-90){const b=document.createElement('canvas'),r=document.createElement('canvas');b.width=r.width=rw;b.height=r.height=rh;b.getContext('2d').drawImage(OBC,0,0);r.getContext('2d').drawImage(OSC,0,0);o._rc={k:fk,b,r};B=b;S=r}}
- if(!(o.k==='bird'||o.k==='gull'||o.k==='magpie'||o.k==='ped')){ctx.fillStyle='rgba(20,8,40,.35)';ctx.fillRect(x-2,Math.round(o.y)-1,o.w+4,2);ctx.fillRect(x,Math.round(o.y)+1,o.w,1)}
+ if(!(o.k==='bird'||o.k==='gull'||o.k==='magpie'||o.k==='ped')){if(HD){const cx=x+o.w/2,cy=Math.round(o.y),g=ctx.createRadialGradient(cx,cy,0,cx,cy,o.w*.75+6);g.addColorStop(0,'rgba(12,4,24,.55)');g.addColorStop(.6,'rgba(12,4,24,.22)');g.addColorStop(1,'rgba(12,4,24,0)');ctx.save();ctx.translate(cx,cy);ctx.scale(1,.22);ctx.translate(-cx,-cy);ctx.fillStyle=g;ctx.fillRect(cx-o.w-6,cy-o.w-6,o.w*2+12,o.w*2+12);ctx.restore()}else{ctx.fillStyle='rgba(20,8,40,.35)';ctx.fillRect(x-2,Math.round(o.y)-1,o.w+4,2);ctx.fillRect(x,Math.round(o.y)+1,o.w,1)}}
  ctx.globalAlpha=inact?.25:haz?.6+.3*Math.sin(clock*5+o.ph):.85;for(const d of RIMD)ctx.drawImage(S,0,0,rw,rh,bx+d[0],by+d[1],rw,rh);ctx.globalAlpha=1;ctx.drawImage(B,0,0,rw,rh,bx,by,rw,rh)}
 const RIMD=[[-1,0],[1,0],[0,-1],[0,1]];
 const FAC=document.createElement('canvas');const fcx=FAC.getContext('2d');
