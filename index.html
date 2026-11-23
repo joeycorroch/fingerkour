@@ -1005,6 +1005,7 @@ function drawBG(cam){
  const sunY=(low?96:44)+oy(.04),sr=low?20:12;glow(SUNX,sunY,sr*5,rgbaOf('sun',night?.18:.45));
  const sc=pal.sun;pcirc(SUNX,sunY,sr+1,q8(sc.map(v=>v*.85)));pcirc(SUNX,sunY,sr,P('sun'));ctx.fillStyle=dpat(q8(sc.map(v=>v*.9)),6);ctx.fillRect(SUNX-sr,sunY+Math.round(sr*.35),sr*2,Math.round(sr*.7));
  if(!night){pcirc(SUNX-3,sunY-3,Math.floor(sr*.5),'#fffbe8')}else{pcirc(SUNX+5,sunY-4,11,P('sky1'));fr('rgba(0,0,0,.12)',SUNX-6,sunY-2,2,2);fr('rgba(0,0,0,.12)',SUNX-3,sunY+4,3,2)}
+ skyLife(night);
  const cloudy=(G&&G.weather!=='clear'&&G.weather!=='snow'?G.wAmt:0),ncl=6+Math.round(cloudy*10);
  const cc=pal.cloud.map(v=>lerp(v,110,cloudy*.45));
  for(let i=0;i<ncl;i++){const cx=((hash(i+5)*600-cam*.04)%600+600)%600-80,cyy=18+hash(i+9)*50+oy(.07);cloudPix(cx,cyy,cc)}
@@ -1017,7 +1018,7 @@ function drawBG(cam){
  // mid skyline: outlined pixel buildings with rooftop props
  const s2=cam*.25,o2=oy(.25);
  {const eCT=G?G.envCT||0:0,eDk=G?G.envDock||0:0,eSe=G?G.envSea||0:0,key=q8(pal.mid)+q8(pal.sky2)+night+Math.round(eCT*10)+Math.round(eDk*10)+Math.round(eSe*10)+palTarget;
-  layerChunks('mid',Math.round(s2),key,(u0,cw)=>midSky(u0,0,cw,night),Math.round(H-170+o2))}
+  layerChunks('mid',Math.round(s2),key,(u0,cw)=>midSky(u0,0,cw,night),Math.round(H-170+o2));midLife(Math.round(s2),o2,night)}
  if(G){drawTreeLine(o2,G.envPark||0,cam);drawHarbour(o2,G.envDock||0,cam);drawSea(o2,G.envSea||0)}
  dhaze(Math.round(H*.6+o2),60,q8(pal.sky2),5);
  godRays(SUNX,(low?96:44)+oy(.04),night,low);
@@ -1280,7 +1281,7 @@ function drawCranes(o2,a,cam){if(a<=.01)return;ctx.globalAlpha=a;const s=cam*.28
 function drawSea(o2,a){if(a<=.01)return;ctx.globalAlpha=a;const hy=Math.round(H*.6+o2);if(hy<H){
  const top=pal.sky2.map((v,j)=>lerp(v,[40,120,190][j],.55)),deep=pal.sky1.map((v,j)=>lerp(v,[10,50,110][j],.6));
  dsky(hy,H-hy,top,deep,3);fr(q8(pal.sky2.map(v=>Math.min(255,v*1.1+20))),0,hy,W,1);
- rowReflect(hy,Math.min(46,H-hy),.42*a,1);
+ rowReflect(hy,Math.min(46,H-hy),.42*a,1);ferry(hy,a);
  for(let yy=hy+2;yy<H;yy+=3){const w=4+((yy-hy)>>2);if(Math.sin(yy*1.7+clock*6)>-.2)fr(P('sun'),Math.round(SUNX-w/2+Math.sin(yy+clock*3)*3),yy,Math.round(w*.6),1)}
  waterCycle(-((curCam*.3)%11)|0,W+4,hy+3,H,[null,null,null,'rgba(255,255,255,.22)','rgba(255,255,255,.5)','rgba(255,255,255,.22)'],7,5,22)}
  ctx.globalAlpha=1}
@@ -1321,6 +1322,55 @@ function neonChase(x,y,w,h,col,seed){// marquee lights chasing round a sign's bo
  const per=2*(w+h)-4,lit=CYC(['#ffffff',col,col],1,0),sp=Math.floor(clock*10+seed);
  for(let i=0;i<per;i+=3){if(((i/3|0)+sp)%3)continue;let px,py,q=i;if(q<w){px=x+q;py=y}else if((q-=w)<h-1){px=x+w-1;py=y+1+q}else if((q-=h-1)<w-1){px=x+w-2-q;py=y+h-1}else{q-=w-1;px=x;py=y+h-2-q}fr(lit,px,py,1,1)}
  const fl=hash(seed*3+Math.floor(clock*6));if(hash(seed)<.35&&fl<.12){ctx.globalAlpha=.55;fr('#1a0f2c',x+2,y+2,w-4,h-4);ctx.globalAlpha=1}}
+
+// ---------- living backgrounds: windows, steam, birds, train, planes, ferry, laundry ----------
+const LIFE={birds:[],nB:4,train:null,nT:5,plane:null,nP:9,lc:0};
+function midGeom(i){const eCT=G?G.envCT||0:0,eDk=G?G.envDock||0:0,eSe=G?G.envSea||0:0,hh=hash(i),stv=hash(i+500),sty=stv<eCT?'pag':stv<eDk?'ware':stv<eSe?'beach':'city';
+ let bw=12+Math.floor(hh*10),bh=34+Math.floor(hash(i+999)*64);if(sty==='ware'){bw+=10;bh=18+Math.floor(hash(i+999)*26)}else if(sty==='beach'){bh=26+Math.floor(hash(i+999)*42)}else if(sty==='pag'){bh=30+Math.floor(hash(i+999)*52);bw=Math.max(14,bw)}
+ return{sty,bw,bh}}
+function midLife(s2,o2,night){
+ const dt=Math.min(.1,Math.max(0,clock-LIFE.lc));LIFE.lc=clock;const slot=22,mc=pal.mid,MO=q8(mc.map(v=>v*.55)),MD=q8(mc.map(v=>v*.72)),MW=P('midWin'),SK=pal.sky2;
+ const i0=Math.floor(s2/slot)-1,i1=Math.floor((s2+W)/slot)+1;
+ for(let i=i0;i<=i1;i++){const g=midGeom(i),bx=Math.round(i*slot-s2),top=H-g.bh-12+o2;
+  // windows switching on and off through the evening
+  if(NA>.25&&g.sty==='city'){const cols=Math.floor((g.bw-4)/3),rows=Math.floor((g.bh-14)/5);if(cols>0&&rows>0)for(let k=0;k<3;k++){const wx=bx+2+3*Math.floor(hash(i*7+k)*cols),wy=H-g.bh-8+5*Math.floor(hash(i*9+k*5)*rows)+o2,per=4+hash(i+k*13)*7,on=hash(i*31+k*7+Math.floor((clock+hash(i+k)*9)/per))<.55;fr(on?MW:MD,wx,wy,1,2)}}
+  // rooftop steam
+  if((g.sty==='city'||g.sty==='ware')&&hash(i+77)<.2){const vx=bx+Math.floor(g.bw*.65),vy=top-(g.sty==='ware'?4:1),sc=q8(SK.map(v=>Math.min(255,v*.5+150)));fr(MO,vx-1,vy-2,3,2);
+   for(let k=0;k<4;k++){const q=((clock*.45+k/4+hash(i)*3)%1),r=Math.round(1+q*3),px=Math.round(vx-q*10+Math.sin(q*6+i)*1.5),py=Math.round(vy-3-q*20);ctx.fillStyle=dpat(sc,q<.4?12:q<.7?8:4);for(let j=-r;j<=r;j++){const w=Math.floor(Math.sqrt(r*r-j*j));ctx.fillRect(px-w,py+j,w*2+1,1)}}}}
+ // a flock lifts off a rooftop now and then
+ if((LIFE.nB-=dt)<0&&!(G&&G.weather==='storm')){LIFE.nB=7+Math.random()*9;const i=Math.floor((s2+W*(.2+Math.random()*.7))/slot),g=midGeom(i),n=4+Math.floor(Math.random()*4),dir=Math.random()<.6?1:-1;
+  for(let k=0;k<n;k++)LIFE.birds.push({x:i*slot+4+Math.random()*g.bw,y:H-g.bh-13,vx:dir*(14+Math.random()*10),vy:-(10+Math.random()*8),ph:Math.random()*6,t:-k*.12})}
+ const BC=night?q8(SK.map(v=>v*.3+20)):q8(mc.map(v=>v*.45));
+ for(let k=LIFE.birds.length-1;k>=0;k--){const b=LIFE.birds[k];b.t+=dt;if(b.t<0)continue;b.x+=b.vx*dt;b.y+=b.vy*dt;b.vy=Math.max(-16,b.vy-6*dt);const x=Math.round(b.x-s2),y=Math.round(b.y+o2);
+  if(b.t>9||x<-20||x>W+20||y<-10){LIFE.birds.splice(k,1);continue}const up=Math.sin(clock*16+b.ph)>0;fr(BC,x,y,1,1);if(up){fr(BC,x-1,y-1,1,1);fr(BC,x+1,y-1,1,1);fr(BC,x-2,y-2,1,1);fr(BC,x+2,y-2,1,1)}else{fr(BC,x-1,y,1,1);fr(BC,x+1,y,1,1);fr(BC,x-2,y+1,1,1);fr(BC,x+2,y+1,1,1)}}
+ // elevated railway with the occasional commuter train
+ const eSe=G?G.envSea||0:0,ty=Math.round(H*.57+o2);if(eSe<.9){ctx.globalAlpha=1-eSe;
+  const TK=q8(mc.map(v=>v*.5));fr(TK,0,ty+5,W,2);fr(MD,0,ty+4,W,1);for(let px=-((Math.round(s2*1.2))%34+34)%34;px<W;px+=34){fr(TK,px,ty+6,3,H);fr(MD,px,ty+6,1,H)}
+  if(!LIFE.train&&(LIFE.nT-=dt)<0){const dir=Math.random()<.5?1:-1;LIFE.train={x:dir>0?s2-170:s2+W+20,dir,v:46+Math.random()*24}}
+  const T=LIFE.train;if(T){T.x+=T.dir*T.v*dt;const x0=Math.round(T.x-s2),TB=q8(mc.map((v,j)=>lerp(v,[200,210,225][j],.25))),TS=q8(mc.map((v,j)=>lerp(v,[120,40,60][j],.35)));
+   for(let c=0;c<5;c++){const cx=x0+c*30;if(cx>W||cx+28<0)continue;fr(MO,cx-1,ty-8,30,13);fr(TB,cx,ty-7,28,11);fr(TS,cx,ty-1,28,2);fr(q8(mc.map(v=>Math.min(255,v*1.25+20))),cx,ty-7,28,1);
+    for(let w=0;w<5;w++)fr(night?(hash(c*5+w)<.8?'#ffe9a8':MD):q8(SK.map(v=>v*.7+40)),cx+3+w*5,ty-5,3,3);fr(MO,cx+2,ty+3,4,2);fr(MO,cx+22,ty+3,4,2)}
+   if(night){const hx=T.dir>0?x0+150:x0-1;fr('#fff6c8',hx,ty-3,1,2);neonGlow(hx,ty-2,10,6,'#fff2b0',.5)}
+   if((T.dir>0&&x0>W+10)||(T.dir<0&&x0<-170)){LIFE.train=null;LIFE.nT=10+Math.random()*12}}
+  ctx.globalAlpha=1}}
+function skyLife(night){// high plane: blinking nav lights at night, contrail by day
+ const dt=Math.min(.1,Math.max(0,clock-(LIFE.pc||0)));LIFE.pc=clock;
+ if(!LIFE.plane&&(LIFE.nP-=dt)<0){const dir=Math.random()<.5?1:-1;LIFE.plane={x:dir>0?-20:W+20,y:44+Math.random()*26,dir,v:9+Math.random()*5,tr:[]}}
+ const p=LIFE.plane;if(!p)return;p.x+=p.dir*p.v*dt;const x=Math.round(p.x),y=Math.round(p.y);
+ if(night){fr(Math.sin(clock*7)>.6?'#ff3050':'#3a2040',x,y,1,1);if(Math.sin(clock*7+2)>.85)fr('#ffffff',x-p.dir*2,y,1,1)}
+ else{const tc=q8(pal.sky2.map(v=>Math.min(255,v*.4+165)));ctx.fillStyle=dpat(tc,8);ctx.fillRect(p.dir>0?Math.max(0,x-70):x+3,y,Math.min(70,p.dir>0?x:W-x),1);ctx.fillStyle=dpat(tc,4);ctx.fillRect(p.dir>0?Math.max(0,x-110):x+70,y+1,40,1);
+  const pc=q8(pal.sky1.map(v=>v*.5+60));fr(pc,x-1,y,4,1);fr(pc,x+(p.dir>0?0:1),y-1,1,3)}
+ if(x<-30||x>W+30){LIFE.plane=null;LIFE.nP=18+Math.random()*20}}
+function ferry(hy,a){// slow ferry crossing the bay with a dithered wake
+ const L=W+260,x=Math.round(((clock*6-curCam*.3)%L+L)%L)-130,y=hy+5,FB=q8(pal.mid.map(v=>v*.6)),FW=q8(pal.mid.map((v,j)=>lerp(v,[240,236,230][j],.6)));
+ if(x>W+40||x<-50)return;ctx.globalAlpha=a;ctx.fillStyle=dpat('#ffffff',4);ctx.fillRect(x+34,y+4,30,1);ctx.fillStyle=dpat('#ffffff',2);ctx.fillRect(x+40,y+5,26,1);
+ fr(FB,x,y,36,4);fr(FB,x+2,y+4,32,1);fr(FW,x+5,y-5,24,5);fr(FB,x+8,y-9,14,4);fr(FW,x+9,y-8,12,3);fr('#c8453c',x+15,y-12,3,3);fr(FB,x+15,y-13,3,1);
+ for(let k=0;k<5;k++)fr(NA>.4?'#ffe9a8':FB,x+7+k*4,y-3,2,1);ctx.globalAlpha=1}
+let XREC=null;
+function laundry(x,y,w){// washing line across an alley, clothes flap in the wind
+ const ly=y-64;fr(K,x-3,ly-1,2,3);fr(K,x+w+1,ly-1,2,3);for(let i=0;i<=w+4;i++){const sg=Math.round(Math.sin(i/(w+4)*PI)*2);fr('#2a2230',x-2+i,ly+sg,1,1)}
+ const CL=['#e8e4dc','#c8453c','#3d6fe0','#f4d23f','#7ad0a8'];for(let k=0;k<Math.max(1,Math.floor(w/7));k++){const cx=x+1+k*7,sg=Math.round(Math.sin((cx-x+2)/(w+4)*PI)*2),c=CL[Math.floor(hash(x*3+k)*CL.length)],fl=Math.sin(clock*5+k*1.3+x)>0;
+  fr(K,cx-1,ly+sg,6,1);fr(c,cx,ly+sg+1,4,fl?4:5);if(fl)fr(c,cx+(Math.sin(clock*5+k)>.5?1:0),ly+sg+5,3,1);fr('rgba(0,0,0,.18)',cx+3,ly+sg+1,1,4)}}
 let LREC=null;
 function lantern(x,y,sw){if(LREC){LREC.push([x,y]);return}const R=rmp('#e8283a');x=Math.round(x+sw);fr('#3a2a1a',x,y-4,1,4);fr(K,x-4,y-1,9,10);fr(R.b,x-3,y,7,8);fr(R.h,x-3,y,7,1);fr(R.l,x-2,y+1,1,6);fr(R.s,x+2,y+1,1,6);fr(R.d,x-1,y+1,1,6);fr('#ffd23f',x-3,y-1,7,1);fr('#ffd23f',x-3,y+8,7,1);fr('#ffd23f',x,y+9,1,3);neonGlow(x,y+4,10,10,'#ff3a3a',.25+NA*.5)}
 const CTCOL=['#a8282a','#24705a','#b8822a','#7a2a5a'];
@@ -1354,18 +1404,19 @@ function drawFacadeCached(p,x,y,drawFn,pad,noHaze){pad=pad||0;const fw=p.fw||p.w
  const c0=Math.max(0,Math.floor((-x)/FCH)),c1=Math.min(Math.floor((fw-1)/FCH),Math.floor((W-x)/FCH));
  for(let c=c0;c<=c1;c++){let ch=p._fc[c];if(!ch){ch=p._fc[c]=buildChunk(p,c,y,drawFn,pad,noHaze)}const sx=x+c*FCH;ctx.drawImage(ch.cv,sx-pad,y-FTOP);if(RAYNEXT)RAYNEXT.push([ch.cv,sx-pad,y-FTOP,1]);
   for(const L of ch.lan)lantern(sx+L[0],y-FTOP+L[1],Math.sin(clock*2+L[0]*.37)*1.2);
+  if(ch.lau)for(const A of ch.lau){const ax=sx+A[0];if(ax<W+10&&ax+A[2]>-10)laundry(ax,y-FTOP+A[1],A[2])}
   if(ch.neo)for(const N of ch.neo){const nx=sx+N[0];if(nx<W&&nx+N[2]>0)neonChase(nx,y-FTOP+N[1],N[2],N[3],N[4],N[5])}}
  for(const k in p._fc){const c=+k;if(x+(c+1)*FCH<-20){p._fc[k].cv.width=0;delete p._fc[k]}}}
 const FPOOL=[];
 function buildChunk(p,c,y,drawFn,pad,noHaze){const cv2=document.createElement('canvas'),fw=p.fw||p.w;cv2.width=Math.min(FCH,fw-c*FCH)+pad*2;cv2.height=FTOP;const cx2=cv2.getContext('2d');cx2.imageSmoothingEnabled=false;
- const m=ctx,mc=curCam,wx0=Math.round(p.x)+c*FCH-pad;ctx=cx2;curCam=wx0;LREC=[];NREC=[];let lan,neo;
- try{drawFn(p,-c*FCH+pad,FTOP)}finally{ctx=m;curCam=mc;lan=LREC.filter(L=>L[0]>=pad&&L[0]<FCH+pad).map(L=>[L[0]-pad,L[1]]);LREC=null;neo=NREC.filter(L=>L[0]+L[2]>pad&&L[0]<FCH+pad).map(L=>[L[0]-pad,...L.slice(1)]);NREC=null}
+ const m=ctx,mc=curCam,wx0=Math.round(p.x)+c*FCH-pad;ctx=cx2;curCam=wx0;LREC=[];NREC=[];XREC=[];let lan,neo,lau;
+ try{drawFn(p,-c*FCH+pad,FTOP)}finally{ctx=m;curCam=mc;lan=LREC.filter(L=>L[0]>=pad&&L[0]<FCH+pad).map(L=>[L[0]-pad,L[1]]);LREC=null;neo=NREC.filter(L=>L[0]+L[2]>pad&&L[0]<FCH+pad).map(L=>[L[0]-pad,...L.slice(1)]);NREC=null;lau=XREC.filter(L=>L[0]>=pad-10&&L[0]<FCH+pad).map(L=>[L[0]-pad,L[1],L[2]]);XREC=null}
  {const pv=p._fc&&p._fc[c-1];sEndTmp=castShadow(cv2,pv&&pv.sEnd,1,pad)}
- if(noHaze)return{cv:cv2,lan,neo,sEnd:sEndTmp};
+ if(noHaze)return{cv:cv2,lan,neo,lau,sEnd:sEndTmp};
  cx2.globalCompositeOperation='source-atop';const sk=pal.sky2;cx2.fillStyle=`rgba(${sk[0]|0},${sk[1]|0},${sk[2]|0},${(.2-NA*.08).toFixed(3)})`;cx2.fillRect(0,0,cv2.width,FTOP);
  cx2.fillStyle=`rgba(24,10,44,${(.1+NA*.1).toFixed(3)})`;cx2.fillRect(0,0,cv2.width,FTOP);
  const g=cx2.createLinearGradient(0,FTOP-60,0,FTOP);g.addColorStop(0,'rgba(24,10,44,0)');g.addColorStop(1,`rgba(24,10,44,${(.34+NA*.12).toFixed(3)})`);cx2.fillStyle=g;cx2.fillRect(0,FTOP-60,cv2.width,60);cx2.globalCompositeOperation='source-over';
- return{cv:cv2,lan,neo,sEnd:sEndTmp}}
+ return{cv:cv2,lan,neo,lau,sEnd:sEndTmp}}
 // ---------- varied buildings ----------
 const DEF=[];
 function tone(hex){const q=Math.round(NA*8)/8;return q<.05?hex:mix(hex,'#2a1a4a',q*.34)}
@@ -1397,7 +1448,7 @@ function bldList(p,types,need){const fw=p.fw||p.w;if(!p.blds||p.bldFw!==fw){p.bl
 function drawBlds(p,x,y,types,fns){const L=bldList(p,types,W+60-x);DEF.length=0;
  for(const b of L){const sx=x+b.o;if(sx>W+40||sx+b.w<-40)continue;fns[b.k](sx,b.w,y,b.v,b.s)}
  for(const f of DEF)f();DEF.length=0}
-function alley(sx,bw,y,v,s,ct){const top=y-100,D=rmp(tone(ct?'#3a1a2a':'#3a3048'));fr(K,sx,top,bw,y-top);fr(D.d,sx+1,top+1,bw-2,y-top-1);ctx.fillStyle=anchor(dpat(D.s,4));ctx.fillRect(sx+1,top+1,bw-2,y-top-1);
+function alley(sx,bw,y,v,s,ct){if(XREC&&bw>=12&&hash(sx*7+s)<.7)XREC.push([sx,y,bw]);const top=y-100,D=rmp(tone(ct?'#3a1a2a':'#3a3048'));fr(K,sx,top,bw,y-top);fr(D.d,sx+1,top+1,bw-2,y-top-1);ctx.fillStyle=anchor(dpat(D.s,4));ctx.fillRect(sx+1,top+1,bw-2,y-top-1);
  for(let yy=top+6;yy<y-4;yy+=8)fr(D.b,sx+1,yy,bw-2,1);
  cyl(sx+2,top+2,2,y-top-2,rmp(tone('#6a6e88')));for(let yy=top+10;yy<y;yy+=22)fr(K,sx+1,yy,4,1);
  if(bw>14){for(let yy=y-70;yy<y-30;yy+=4)fr(rmp(tone('#5a5e78')).b,sx+bw-7,yy,4,1);fr(K,sx+bw-8,y-70,1,40);fr(K,sx+bw-3,y-70,1,40)}
