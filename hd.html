@@ -2364,11 +2364,9 @@ const GLX=(()=>{const c=document.getElementById('gl');let gl=null;try{gl=c.getCo
   return E;}
  void main(){vec2 q=uv*sz-.5;vec2 ip=floor(q+.5);vec2 f=q+.5-ip;vec3 E=T(ip);
   vec2 dir=vec2(f.x<.5?-1.:1.,f.y<.5?-1.:1.);vec3 col=corner(E,ip,dir,f);
-  // soften the remaining square pixel boundaries by one output pixel (sharp-bilinear)
-  vec2 g=fract(uv*sz);vec2 e=clamp((g-.5)/max(px*.5,1e-4)*.5+.5,0.,1.);
-  vec3 nx=corner(T(ip+vec2(dir.x,0.)),ip+vec2(dir.x,0.),dir*vec2(-1.,1.),vec2(1.-f.x,f.y)),ny=corner(T(ip+vec2(0.,dir.y)),ip+vec2(0.,dir.y),dir*vec2(1.,-1.),vec2(f.x,1.-f.y));
+  // soften the remaining square pixel boundaries by a fraction of an output pixel (cheap: neighbours are already fetched)
   float ax=smoothstep(1.-px,1.,abs(f.x-.5)*2.)*.5,ay=smoothstep(1.-px,1.,abs(f.y-.5)*2.)*.5;
-  col=mix(col,nx,ax);col=mix(col,ny,ay);
+  col=mix(col,T(ip+vec2(dir.x,0.)),ax*.6);col=mix(col,T(ip+vec2(0.,dir.y)),ay*.6);
   gl_FragColor=vec4(col,1.);}`;
  const sh=(ty,src)=>{const o=gl.createShader(ty);gl.shaderSource(o,src);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)){console.warn(gl.getShaderInfoLog(o));return null}return o};
  const v=sh(gl.VERTEX_SHADER,vs),f=sh(gl.FRAGMENT_SHADER,fs);if(!v||!f)return null;const pr=gl.createProgram();gl.attachShader(pr,v);gl.attachShader(pr,f);gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))return null;gl.useProgram(pr);
@@ -2376,10 +2374,13 @@ const GLX=(()=>{const c=document.getElementById('gl');let gl=null;try{gl=c.getCo
  const tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);for(const [k,vv] of[[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,k,vv);
  const uSz=gl.getUniformLocation(pr,'sz'),uPx=gl.getUniformLocation(pr,'px');gl.uniform2f(uSz,W,H);
  let ow=0,oh=0;
- function fit(){const r=c.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),w=Math.max(W,Math.round(r.width*d)),h=Math.max(H,Math.round(r.height*d));if(w!==ow||h!==oh){ow=w;oh=h;c.width=w;c.height=h;gl.viewport(0,0,w,h);gl.uniform1f(uPx,Math.min(1,W/w*2))}}
+ function fit(){const r=c.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),w=Math.max(W,Math.min(W*3,Math.round(r.width*d))),h=Math.max(H,Math.min(H*3,Math.round(r.height*d)));if(w!==ow||h!==oh){ow=w;oh=h;c.width=w;c.height=h;gl.viewport(0,0,w,h);gl.uniform1f(uPx,Math.min(1,W/w*2))}}
  document.body.classList.add('glon');
  return{present(){if(gl.isContextLost())return;fit();gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);gl.drawArrays(gl.TRIANGLE_STRIP,0,4)}}})();
-function glPresent(){if(GLX)try{GLX.present()}catch(e){}}
+const GLW={n:0,t0:0,off:false};
+function glPresent(){if(!GLX||GLW.off)return;try{GLX.present()}catch(e){}
+ // safety valve: if this device can't hold ~45fps with smoothing on, fall back to plain pixels
+ const t=performance.now();if(!GLW.t0)GLW.t0=t;GLW.n++;if(GLW.n===150){const fps=150000/(t-GLW.t0);if(fps<45){GLW.off=true;document.body.classList.remove('glon')}else{GLW.n=0;GLW.t0=t}}}
 function frame(now){
  const dt=Math.min(.033,(now-last)/1000);last=now;padPoll(dt);trickReady();musicLevel();musicFX(dt);
  if(state==='intro'){clock+=dt;stepTheme(dt);drawIntro(dt);glPresent();requestAnimationFrame(frame);return}
