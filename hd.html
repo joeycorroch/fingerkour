@@ -455,6 +455,7 @@ function drawHand(tctx,x,y,p,scale){
  const EX=[];for(let yy=1;yy<HB;yy++)for(let xx=0;xx<HB-1;xx++){const i=yy*HB+xx;if(ZB[i]||MARK[i])continue;const up=i-HB,rt=i+1;if(MARK[up]===C.out&&!ZB[up])EX.push(i,C.out);else if(MARK[rt]===C.out&&!ZB[rt])EX.push(i,C.outSoft)}
  for(let k=0;k<EX.length;k+=2)MARK[EX[k]]=EX[k+1];
  for(let i=0;i<HB*HB;i++)if(MARK[i])hbuf[i]=MARK[i];
+ if(typeof HD!=='undefined'&&HD){const O2=C.out,R=[];for(let y=1;y<HB-1;y++)for(let x=1;x<HB-1;x++){const i=y*HB+x;if(hbuf[i])continue;if(hbuf[i-1]||hbuf[i+1]||hbuf[i-HB]||hbuf[i+HB])R.push(i)}for(const i of R)hbuf[i]=O2}
  hx.putImageData(himg,0,0);
  if(!tctx)return;scale=scale||1;
  tctx.drawImage(hc,Math.round(x-AX*scale),Math.round(y-AY*scale),HB*scale,HB*scale);
@@ -1455,7 +1456,7 @@ const TEXHD=(()=>{const N=256,blot=fbmTile(N,N,64,5,11),fine=fbmTile(N,N,4,2,23)
  g.putImageData(id,0,0);return c})();
 function texPattern(x2,ox,oy){const p=x2.createPattern(TEXHD,'repeat');try{p.setTransform(new DOMMatrix().translate(-(((ox%256)+256)%256),-(((oy%256)+256)%256)))}catch(e){}return p}
 function hdTexture(cv,wx,str,streaks){// overlay real-looking grime/grain onto an opaque silhouette, plus rain streaks from roof edges
- const w=cv.width,h=cv.height;if(!w||!h)return;const x2=cv.getContext('2d');const RD=realism(x2,w,h,streaks?{bump:.5,max:28,tex:.14,ox:wx,ao:.45,sat:.9}:{bump:.4,max:18,tex:.1,ox:wx,ao:.2,sat:.88});
+ const w=cv.width,h=cv.height;if(!w||!h)return;const x2=cv.getContext('2d');const RD=realism(x2,w,h,streaks?{bump:.5,max:28,tex:.14,ox:wx,ao:.45,sat:.9,outline:2}:{bump:.4,max:18,tex:.1,ox:wx,ao:.2,sat:.88,outline:1});
  const t=document.createElement('canvas');t.width=w;t.height=h;const tg=t.getContext('2d');tg.fillStyle=texPattern(tg,wx,0);tg.fillRect(0,0,w,h);tg.globalCompositeOperation='destination-in';tg.drawImage(cv,0,0);
  x2.save();x2.globalAlpha=str;x2.globalCompositeOperation='overlay';x2.drawImage(t,0,0);x2.restore();
  if(!streaks)return;const d=RD;if(!d)return;
@@ -1485,6 +1486,12 @@ function liveTex(x,y,w,h,cam,str){if(w<=0||h<=0)return;ctx.save();ctx.globalAlph
 // ---- realism filter: bump-mapped relief from luminance, warm key / cool fill light, material grain, soft AO ----
 const TEXD=(()=>{const g=TEXHD.getContext('2d');return g.getImageData(0,0,256,256).data})();
 function realism(x2,w,h,o){if(w<2||h<2)return;let id;try{id=x2.getImageData(0,0,w,h)}catch(e){return}const d=id.data,N=w*h,L=new Float32Array(N),A=new Uint8Array(N);
+ if(o.outline){// 1) outer silhouette gets an extra dark ring  2) internal dark ink lines grow 1px down/right
+  const OA=new Uint8Array(N);for(let i=0;i<N;i++)OA[i]=d[i*4+3]>120?1:0;const add=[];
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(OA[i])continue;if(OA[i-1]||OA[i+1]||OA[i-w]||OA[i+w])add.push(i)}
+  for(const i of add){const j=i*4;d[j]=18;d[j+1]=8;d[j+2]=20;d[j+3]=255}
+  if(o.outline>1){const ink=[];for(let y=0;y<h-1;y++)for(let x=0;x<w-1;x++){const i=y*w+x,j=i*4;if(!OA[i])continue;const l=d[j]*.3+d[j+1]*.59+d[j+2]*.11;if(l<30){const r=j+4,b=j+w*4;if(d[r+3]>120&&d[r]*.3+d[r+1]*.59+d[r+2]*.11>=30)ink.push(r);if(d[b+3]>120&&d[b]*.3+d[b+1]*.59+d[b+2]*.11>=30)ink.push(b)}}
+   for(const j of ink){d[j]=Math.round(d[j]*.25+5);d[j+1]=Math.round(d[j+1]*.25+3);d[j+2]=Math.round(d[j+2]*.25+8)}}}
  for(let i=0;i<N;i++){const j=i*4;A[i]=d[j+3]>40?1:0;L[i]=d[j]*.3+d[j+1]*.59+d[j+2]*.11}
  const bk=o.bump||.4,bm=o.max||26,tx=o.tex||0,ox=o.ox|0,oy=o.oy|0,gr=o.grade||0,sat=o.sat==null?.92:o.sat,ao=o.ao||0;
  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!A[i])continue;const j=i*4;
@@ -1531,8 +1538,21 @@ const BOLD2=[[-2,0],[2,0],[0,-2],[0,2],[-1,-1],[1,-1],[-1,1],[1,1],[-2,-1],[2,-1
 function obsRender(o,cam,x,rw,rh,bx,by){const main=ctx;obx.setTransform(1,0,0,1,0,0);obx.clearRect(0,0,rw,rh);obx.save();obx.beginPath();obx.rect(0,0,rw,rh);obx.clip();obx.setTransform(1,0,0,1,-bx,-by);
  ctx=obx;try{drawObs(o,cam)}finally{ctx=main;obx.restore()}}
 const ANIMK={bird:1,gull:1,magpie:1,rat:1,crab:1,ped:1,dog:1,sprinkler:1,steam:1,steamer:1,firecracker:1,fuse:1,noodlecart:1,fountain:1,bags:1,ac:1,chimney:1,solar:1};
+
+function outlineBake(src,w,h,rimHex){// body+2px dark ring (one canvas) and a 1px coloured rim ring (another), via pixel dilation
+ const g=src.getContext('2d',{willReadFrequently:true});let id;try{id=g.getImageData(0,0,w,h)}catch(e){return null}const d=id.data,N=w*h,A=new Uint8Array(N),D1=new Uint8Array(N),D2=new Uint8Array(N);
+ for(let i=0;i<N;i++)A[i]=d[i*4+3]>60?1:0;
+ const dil=(S,T)=>{for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(S[i]){T[i]=1;continue}let k=0;for(let dy=-1;dy<=1&&!k;dy++){const yy=y+dy;if(yy<0||yy>=h)continue;for(let dx=-1;dx<=1;dx++){const xx=x+dx;if(xx>=0&&xx<w&&S[yy*w+xx]){k=1;break}}}T[i]=k}};
+ dil(A,D1);dil(D1,D2);
+ const rc=hex2rgb(rimHex),rim=new ImageData(w,h),rd=rim.data;
+ for(let i=0;i<N;i++){const j=i*4;if(D2[i]&&!D1[i]){d[j]=18;d[j+1]=8;d[j+2]=20;d[j+3]=235}else if(D1[i]&&!A[i]){d[j]=18;d[j+1]=8;d[j+2]=20;d[j+3]=235;rd[j]=rc[0];rd[j+1]=rc[1];rd[j+2]=rc[2];rd[j+3]=255}}
+ const b=document.createElement('canvas'),r=document.createElement('canvas');b.width=r.width=w;b.height=r.height=h;b.getContext('2d').putImageData(id,0,0);r.getContext('2d').putImageData(rim,0,0);return{b,r}}
 function drawObsRim(o,cam){const x=Math.round(o.x-cam);if(x>W+40||x<-130)return;
  const rw=Math.min(220,o.w+56),rh=Math.min(170,o.h+64),bx=x-28,by=Math.round(o.y-o.h)-48,haz=!o.solid,inact=o.off,fk=facadeKey();
+ if(HD){const fk2=facadeKey(),haz2=!o.solid;let OB=o._rc&&o._rc.k===fk2&&o._rc.hd?o._rc:(ANIMK[o.k]&&o._ac2&&o._ac2.w===rw&&o._ac2.h===rh&&clock-o._ac2.t<1/24?o._ac2:null);
+  if(!OB){obsRender(o,cam,x,rw,rh,bx,by);realism(obx,rw,rh,{bump:.5,max:30,tex:.16,ox:Math.round(o.x),grade:34,ao:.4,sat:.9});const bk=outlineBake(OBC,rw,rh,haz2?'#ff3a5a':'#fff2b8');if(bk){OB={b:bk.b,r:bk.r,w:rw,h:rh,t:clock,k:fk2,hd:1};if(ANIMK[o.k])o._ac2=OB;else if(x<=W&&x>=-90)o._rc=OB}}
+  if(!(o.k==='bird'||o.k==='gull'||o.k==='magpie'||o.k==='ped')){const cx=x+o.w/2,cy=Math.round(o.y),g=ctx.createRadialGradient(cx,cy,0,cx,cy,o.w*.75+6);g.addColorStop(0,'rgba(12,4,24,.55)');g.addColorStop(.6,'rgba(12,4,24,.22)');g.addColorStop(1,'rgba(12,4,24,0)');ctx.save();ctx.translate(cx,cy);ctx.scale(1,.22);ctx.translate(-cx,-cy);ctx.fillStyle=g;ctx.fillRect(cx-o.w-6,cy-o.w-6,o.w*2+12,o.w*2+12);ctx.restore()}
+  if(OB){ctx.globalAlpha=o.off?.5:1;ctx.drawImage(OB.b,bx,by);ctx.globalAlpha=o.off?.3:haz2?.7+.3*Math.sin(clock*5+o.ph):1;ctx.drawImage(OB.r,bx,by);ctx.globalAlpha=1}return}
  let B=OBC,S=OSC,Dk=ODC;
  if(o._rc&&o._rc.k===fk){B=o._rc.b;S=o._rc.r;Dk=o._rc.d||ODC}
  else if(HD&&ANIMK[o.k]&&o._ac&&o._ac.w===rw&&o._ac.h===rh&&clock-o._ac.t<1/24){B=o._ac.b;S=o._ac.r;Dk=o._ac.d}
@@ -2025,7 +2045,7 @@ function render(){
    for(let i=G.ghost.length-1;i>=(spin?1:0);i--){const gh=G.ghost[i];ctx.globalAlpha=(spin?.42:.3)/(i+1);ctx.drawImage(gh.c,Math.round(gh.x-cam-AX),Math.round(gh.y-AY));}ctx.globalAlpha=1}}
  {const t=tf(-28.5,-19.5-HAND_HIP),t2=tf(-31,-15-HAND_HIP);G.wrist=[G.x-AX+t[0],G.y-AY+t[1],G.x-AX+t2[0],G.y-AY+t2[1]]}
  if(!HIDEHAND){const pl=G.plats.find(q=>G.x>=q.x&&G.x<=q.x+(q.fw||q.w));if(pl&&pl.type!=='roof'&&pl.type!=='car'&&pl.type!=='hwramp'||G.decor.some(d=>G.x>=d.x0&&(d.x1==null||G.x<=d.x1))){shx.clearRect(0,0,HB,HB);shx.globalCompositeOperation='source-over';shx.drawImage(hc,0,0);shx.globalCompositeOperation='source-in';shx.fillStyle='#140820';shx.fillRect(0,0,HB,HB);shx.globalCompositeOperation='source-over';ctx.globalAlpha=.24;handBlit(shc,G.x-cam+6,G.y-4);ctx.globalAlpha=1}}
- if(!HIDEHAND){if(HD){HOX.globalCompositeOperation='copy';HOX.drawImage(hc,0,0);HOX.globalCompositeOperation='source-in';HOX.fillStyle='#120814';HOX.fillRect(0,0,HB,HB);HOX.globalCompositeOperation='source-over';for(const d of BOLD1)handBlit(HOC,G.x-cam+d[0],G.y+d[1])}handBlit(hc,G.x-cam,G.y)}
+ if(!HIDEHAND)handBlit(hc,G.x-cam,G.y);
  if(G.shield>0&&!G.dead){for(let i=0;i<8;i++){const a=clock*6+i*TAU/8;ctx.fillStyle=(i+Math.floor(clock*10))%2?'#ffd23f':'#ffffff';ctx.fillRect(Math.round(G.x-cam+Math.cos(a)*15),Math.round(G.y-16+Math.sin(a)*19),2,2)}}
  for(const p of G.parts){ctx.fillStyle=p.col;ctx.fillRect(Math.round(p.x-cam),Math.round(p.y),p.s,p.s)}
  drawFX(cam);
