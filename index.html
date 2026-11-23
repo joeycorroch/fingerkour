@@ -98,11 +98,23 @@ body.pad .cb{display:none}
 .lb-r{width:calc(var(--u)*16px)}.lb-n{flex:1;color:#ffd23f}.lb-v{color:#fff}.lb-d{width:calc(var(--u)*26px);text-align:right;color:#c9b3d6}
 .keys{font-size:calc(var(--u)*4.3px);line-height:2.1;color:#ffe9f0}
 .keys b{color:var(--sun);font-weight:normal}
+
+/* optional CRT mode: scanlines, phosphor mask, soft glow, curved glass */
+#crt{position:absolute;inset:0;pointer-events:none;z-index:0;display:none;border-radius:4.5%/8%;overflow:hidden}
+body.crt #crt{display:block}
+body.crt canvas#c{filter:blur(.35px) saturate(1.18) contrast(1.08) brightness(1.08);border-radius:4.5%/8%}
+#crt .sl{position:absolute;inset:0;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 55%,rgba(8,0,16,.3) 55%,rgba(8,0,16,.3) 100%);background-size:100% calc(100% / 216)}
+#crt .ms{position:absolute;inset:0;background:repeating-linear-gradient(to right,rgba(255,40,60,.07) 0,rgba(255,40,60,.07) 33%,rgba(40,255,120,.07) 33%,rgba(40,255,120,.07) 66%,rgba(60,90,255,.07) 66%,rgba(60,90,255,.07) 100%);background-size:calc(100% / 384) 100%;mix-blend-mode:multiply}
+#crt .gl{position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 2px rgba(0,0,0,.55),inset 0 0 18px 6px rgba(0,0,0,.35);background:radial-gradient(ellipse 120% 90% at 30% 15%,rgba(255,255,255,.07),rgba(255,255,255,0) 45%)}
+#crt .rb{position:absolute;left:0;right:0;height:18%;top:-20%;background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,.035),rgba(255,255,255,0));animation:crtroll 9s linear infinite}
+@keyframes crtroll{to{top:110%}}
+@media (prefers-reduced-motion:reduce){#crt .rb{display:none}}
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="c" width="384" height="216"></canvas>
+  <div id="crt"><div class="ms"></div><div class="sl"></div><div class="rb"></div><div class="gl"></div></div>
 
   <div id="toast"></div>
   <div id="controls">
@@ -135,6 +147,7 @@ body.pad .cb{display:none}
       <button class="btn gray small" data-go="help">HOW TO PLAY</button>
       <button class="btn gray small" id="muteBtn">SOUND: ON</button>
       <button class="btn gray small" id="musicBtn">MUSIC: ON</button>
+      <button class="btn gray small" id="crtBtn">CRT: OFF</button>
       <button class="btn gray small" id="introBtn">▶ INTRO</button>
       <button class="btn gray small fsb" id="fsBtn">⛶ FULL SCREEN</button>
     </div>
@@ -195,6 +208,7 @@ body.pad .cb{display:none}
       <div class="h">PAUSED</div>
       <button class="btn" id="resumeBtn">RESUME</button>
       <button class="btn gray small fsb" id="fsBtn2">⛶ FULL SCREEN</button>
+      <button class="btn gray small" id="crtBtn2">CRT: OFF</button>
       <button class="btn gray small" data-go="title">QUIT</button>
     </div>
   </div>
@@ -1960,7 +1974,7 @@ function drawHUD(){
 const screens=['sSplash','sTitle','sScores','sTrips','sLocker','sHelp','sPause','sOver','sDone'];
 function show(id){for(const s of screens)$(s).classList.toggle('on',s===id);$('controls').classList.toggle('on',id===null)}
 function toTitle(){state='title';newGame('demo');show('sTitle');refreshTitle()}
-function refreshTitle(){const best=store.get('best',0),bank=store.get('bank',0);$('titleStats').innerHTML=`BEST ${best}m &nbsp;·&nbsp; BANK ${bank}c`;$('muteBtn').textContent='SOUND: '+(muted?'OFF':'ON');$('musicBtn').textContent='MUSIC: '+(musicOn?'ON':'OFF')}
+function refreshTitle(){const best=store.get('best',0),bank=store.get('bank',0);$('titleStats').innerHTML=`BEST ${best}m &nbsp;·&nbsp; BANK ${bank}c`;$('muteBtn').textContent='SOUND: '+(muted?'OFF':'ON');$('musicBtn').textContent='MUSIC: '+(musicOn?'ON':'OFF');crtSync()}
 function play(mode,trip){hideNE();newGame(mode,trip);state='play';show(null);input.tricks.length=0;input.jumpPress=0}
 let lastMode=['endless',0];
 function gameOver(){
@@ -2000,6 +2014,8 @@ addEventListener('keydown',e=>{if(e.code==='KeyF'&&!(NE&&!NE.saved)){isFull()?ex
 $('startBtn').onclick=()=>{if(matchMedia('(pointer:coarse)').matches)goFull();startIntro()};$('skipBtn').onclick=()=>endIntro();$('introBtn').onclick=()=>startIntro();
 $('wrap').addEventListener('pointerdown',e=>{if(state==='intro'&&introT>.6&&e.target.id!=='skipBtn')endIntro()});
 $('muteBtn').onclick=()=>{audio();setMuted(!muted);refreshTitle()};
+let crtOn=store.get('crt',false);function crtSync(){document.body.classList.toggle('crt',crtOn);for(const id of['crtBtn','crtBtn2']){const b=$(id);if(b)b.textContent='CRT: '+(crtOn?'ON':'OFF')}}
+for(const id of['crtBtn','crtBtn2'])$(id).onclick=()=>{audio();crtOn=!crtOn;store.set('crt',crtOn);crtSync();SND.coin()};crtSync();
 $('musicBtn').onclick=()=>{musicOn=!musicOn;store.set('music',musicOn);audio();musicKick();refreshTitle()};
 document.querySelectorAll('.btn').forEach(b=>b.addEventListener('pointerdown',()=>{audio();SND.click()}));
 $('retryBtn').onclick=$('retry2Btn').onclick=()=>{audio();play(lastMode[0],lastMode[1])};
