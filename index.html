@@ -379,13 +379,16 @@ function lookCols(){const k=JSON.stringify(look);if(k===lookKey)return lookCache
  const RA=skinRamp(sk),RBk=skinRamp(shade(sk,.86)).map((c,i)=>i===0?RA[0]:c);const nc=NAILS[look.nails].c||mix(sk,'#fff2e4',.62);
  lookCache={ramp:RA,R:RA.map(u32),skin:legCols(RA),skinB:legCols(RBk),nail:trio(nc),nailB:trio(shade(nc,.86)),out:u32(RA[0]),outSoft:u32a(RA[0],120),inner:u32(RA[1])};return lookCache}
 const LF=[7.2,5.2,4],LB=[6.6,4.8,3.6];
-function fingerGeom(hx0,hy0,a1,bend,L){const a2=a1-bend,a3=a2-bend*.6;
+function fingerGeom(hx0,hy0,a1,bend,L,tip){const a2=a1-bend,a3=a2-bend*.6-(tip||0);
  const p1=[hx0+L[0]*Math.sin(a1),hy0+L[0]*Math.cos(a1)],p2=[p1[0]+L[1]*Math.sin(a2),p1[1]+L[1]*Math.cos(a2)],p3=[p2[0]+L[2]*Math.sin(a3),p2[1]+L[2]*Math.cos(a3)];
  return{p0:[hx0,hy0],p1,p2,p3,a1,a2,a3}}
 function poseLegs(p){
  const k=p.k||0;let f,b;
- if(p.mode==='run'){const A=lerp(.42,.9,k),B=lerp(.7,1.6,k),b0=.18,ph=p.phase;
-  f=[A*Math.sin(ph),b0+B*Math.max(0,Math.cos(ph))];b=[A*Math.sin(ph+PI),b0+B*Math.max(0,Math.cos(ph+PI))]}
+ if(p.mode==='run'){const A=lerp(.42,.9,k),B=lerp(.7,1.6,k),b0=.18,ph=p.phase,cr=p.crouch||0;
+  // fingertip flick as each finger peels off the ground
+  const fl=q=>-k*.85*Math.max(0,Math.cos(q))*Math.max(0,Math.sin(q))*2;
+  f=[A*Math.sin(ph)*(1-cr*.6)+cr*.35,b0+B*Math.max(0,Math.cos(ph))+cr*1.15,fl(ph)];b=[A*Math.sin(ph+PI)*(1-cr*.6)-cr*.2,b0+B*Math.max(0,Math.cos(ph+PI))+cr*1.05,fl(ph+PI)]}
+ else if(p.mode==='push'){const e=p.e;f=[lerp(-.55,.6,e),lerp(.05,1.2,e)];b=[lerp(-.8,-.3,e),lerp(.05,.9,e)]}
  else if(p.mode==='air'){f=p.rising?[.6,1.2]:[.25,.5];b=p.rising?[-.3,.9]:[-.12,.55]}
  else if(p.mode==='tuck'){f=[1.1,1.9];b=[.9,1.8]}
  else if(p.mode==='crash'){const w=Math.sin(p.phase*3);f=[-.9+.4*w,.3];b=[1.1-.4*w,.4]}
@@ -406,7 +409,7 @@ function digit(Bd,base,a,bend,lens,rs,cols,nail,side){
 function drawHand(tctx,x,y,p,scale){
  const C=lookCols();hbuf.fill(0);ZB.fill(0);
  const lg=p.legs||poseLegs(p);
- let F=fingerGeom(2.8,-1.9,lg.f[0],lg.f[1],LF),B=fingerGeom(-2.8,1.85,lg.b[0],lg.b[1],LB);
+ let F=fingerGeom(2.8,-1.9,lg.f[0],lg.f[1],LF,lg.f[2]),B=fingerGeom(-2.8,1.85,lg.b[0],lg.b[1],LB,lg.b[2]);
  const RF=2.1,RB=2;
  const hipH=(p.mode==='run'||p.mode==='idle')?Math.max(F.p3[1],B.p3[1])+RF*.85:16;HAND_HIP=hipH;
  const S=G0=>{const m=q=>[q[0],q[1]-hipH];return{p0:m(G0.p0),p1:m(G0.p1),p2:m(G0.p2),p3:m(G0.p3),a1:G0.a1,a2:G0.a2,a3:G0.a3}};
@@ -483,7 +486,7 @@ function newGame(mode,trip){
  const plan=PLANS[mode==='trip'?'trip'+trip:'endless'];
  G={mode,trip,x:0,y:STREET_Y,vy:0,grounded:true,coyote:0,buf:0,airJ:1,speed:0,phase:0,dist:0,coins:0,style:0,bank:0,combo:0,
   trick:null,queued:null,rot:0,sx:1,dead:false,deadT:0,stumble:0,power:null,
-  plats:[],obs:[],coinA:[],items:[],parts:[],pops:[],trail:[],drops:[],decor:[],marks:[],genX:-200,genY:STREET_Y,total:0,
+  plats:[],obs:[],coinA:[],items:[],parts:[],pops:[],dust:[],sq:0,sqv:0,jumpT:-9,landV:0,ghost:[],trail:[],drops:[],decor:[],marks:[],genX:-200,genY:STREET_Y,total:0,
   plan,pi:0,zone:plan[0][0],zoneEnd:plan[0][1]||1e9,lastPlat:null,lastLand:STREET_Y,camY:0,
   len:mode==='trip'?TRIPS[trip].len:Infinity,finalMade:false,finishX:Infinity,finished:false,doneT:0,flash:0,demo:mode==='demo',time:0,weather:'clear',wAmt:0,wNext:null,wp:[],boltT:0,boltNext:3,wSched:(mode==='trip'?WX_TRIPS[trip].slice():null),fullJump:false,celeN:0,cele:null,celeQ:false,shield:0,landT:9};
  {const z0=plan[0][0],sy0=z0==='roof'?ROOF_Y:z0==='highway'?RY-30:STREET_Y;G.envHwy=z0==='highway'?1:0;addPlat(-200,sy0,mode==='demo'?1e9:520,FINALT[z0]||'street');G.genY=sy0;G.y=sy0;G.lastLand=sy0;G.camY=Math.min(0,sy0-150)}G.genX=320;
@@ -666,6 +669,17 @@ const POOLS={highway:['case1','case2','roofbox'],chinatown:['noodlecart','veggie
  scaffold:['paint','bricks','cement','toolbox','nails','timber','timber'],fire:['pot','bird']};
 function addObs(x,y,k){const o={x:Math.round(x),y,k,w:OBS[k].w,h:OBS[k].h,solid:!!OBS[k].solid,ph:Math.random()*6};G.obs.push(o);return o}
 
+function dustFX(x,y,pw){// pixel dust clouds that roll outward from a jump/landing
+ if(!G)return;const n=pw>.7?3:2;for(let s=-1;s<=1;s+=2)for(let i=0;i<n;i++)G.dust.push({x:x+s*(2+i*3),y,vx:s*(28+i*20)*(.6+pw),r0:1+i*.4,r1:2.2+pw*2+i*.6,t:-i*.03,life:.32+pw*.12+i*.04,k:0})
+ if(pw===0)G.dust.push({x:x-3,y,vx:-30,r0:1,r1:2.6,t:0,life:.26,k:0})}
+function stepDust(x,y){if(G.dust.length<40)G.dust.push({x,y,vx:-18-Math.random()*10,r0:.6,r1:1.8,t:0,life:.22,k:1})}
+function handBlit(img,x,y){// squash & stretch anchored at the fingertips (nearest-neighbour, so pixels stay crisp)
+ const q=G?G.sq:0;if(Math.abs(q)<.025||G.dead){ctx.drawImage(img,Math.round(x-AX),Math.round(y-AY));return}
+ const sy=1+q,sx=1-q*.55,w=Math.round(HB*sx),h=Math.round(HB*sy);ctx.drawImage(img,Math.round(x-AX*sx),Math.round(y-AY*sy),w,h)}
+function drawDust(cam){const lc=q8(pal.sky2.map(v=>Math.min(255,v*.35+170))),dc=q8(pal.sky2.map(v=>v*.45+70)),K2=q8(pal.sky2.map(v=>v*.3+40));
+ for(const d of G.dust){if(d.t<0)continue;const q=d.t/d.life,e=1-(1-q)*(1-q),r=Math.round(lerp(d.r0,d.r1,e)),x=Math.round(d.x+d.vx*d.t-cam),y=Math.round(d.y-1-r*.6-(d.k?q*2:q*3));
+  if(q>.72){ctx.fillStyle=dpat(lc,q>.86?4:8);for(let j=-r;j<=r;j++){const w=Math.floor(Math.sqrt(r*r-j*j));ctx.fillRect(x-w,y+j,w*2+1,1)}continue}
+  pcirc(x,y,r+1,K2);pcirc(x,y,r,dc);if(r>1)pcirc(x-1,y-1,r-1,lc);else fr(lc,x,y-1,1,1)}}
 function puff(x,y,n,col,spd){for(let i=0;i<n;i++)G.parts.push({x,y,vx:(Math.random()-.5)*(spd||50),vy:-Math.random()*(spd||40),life:.4+Math.random()*.3,col:col||'#ffffff',g:120,s:Math.random()<.5?1:2})}
 function pop(text,col,x,y){G.pops.push({text,col:col||'#ffd23f',x:x==null?G.x:x,y:y==null?G.y-40:y,life:1.1})}
 
@@ -680,7 +694,7 @@ function startTrick(type){if(G.cele)return;
  if(G.trick){G.queued=type;return}
  G.trick={type,t:0,dur:type==='spin'?.34:.42}
 }
-function doJump(full){const s2=sj();G.vy=-JV*(s2?1.2:1);G.grounded=false;G.coyote=0;G.airJ=s2?2:1;G.fullJump=!!full;if(s2){sfx(200,900,.2,'triangle',.07);puff(G.x-2,G.y,10,'#3cf0c0',90)}else{SND.jump();puff(G.x-2,G.y,5,'#ffffff')}}
+function doJump(full){const s2=sj();G.sq=.24;G.sqv=0;G.jumpT=clock;dustFX(G.x,G.y,0);G.vy=-JV*(s2?1.2:1);G.grounded=false;G.coyote=0;G.airJ=s2?2:1;G.fullJump=!!full;if(s2){sfx(200,900,.2,'triangle',.07);puff(G.x-2,G.y,10,'#3cf0c0',90)}else{SND.jump();puff(G.x-2,G.y,5,'#ffffff')}}
 function bankStyle(){
  if(G.combo>0){const pts=G.comboPts;G.style+=pts;pop((G.combo>1?'COMBO x'+G.combo+' ':'')+'+'+pts,'#3cf0c0',G.x,G.y-50)}
  G.combo=0;G.comboPts=0}
@@ -758,7 +772,7 @@ function update(dt){
  if(input.jumpPress&&!G.demo){G.buf=.12;input.jumpPress=0}
  if(G.buf>0){G.buf-=dt;
   if(G.grounded||G.coyote>0){doJump(false);G.buf=0}
-  else if(G.airJ>0&&G.vy>-160){G.vy=-JV2*(sj()?1.1:1);G.airJ--;if(sj())puff(G.x,G.y,8,'#3cf0c0',80);G.buf=0;SND.dbl();puff(G.x,G.y,6,'#c8f2ff',60);G.fullJump=false}}
+  else if(G.airJ>0&&G.vy>-160){G.sq=.18;G.sqv=0;G.jumpT=clock;G.vy=-JV2*(sj()?1.1:1);G.airJ--;if(sj())puff(G.x,G.y,8,'#3cf0c0',80);G.buf=0;SND.dbl();puff(G.x,G.y,6,'#c8f2ff',60);G.fullJump=false}}
  while(input.tricks.length&&!G.demo)startTrick(input.tricks.shift());
  // vertical
  if(flying){const ending=G.power.t<1.2,held=input.jump&&!ending;const flr=()=>{let f=1e9;for(const p of G.plats)if(G.x>=p.x-3&&G.x<=p.x+p.w+3&&(p.type!=='sign'||p.y>=G.y-6))f=Math.min(f,p.y);return f<1e9?f:Math.max(G.lastLand,G.y)};let fl0=flr();const tooHigh=G.y<fl0-115;
@@ -811,7 +825,10 @@ function update(dt){
  if(G.wrist&&!G.dead&&Math.random()<dt*(G.grounded?30:45)){const C=lookCols(),u=Math.random(),cols=[C.ramp[4],C.ramp[5],C.ramp[6],C.ramp[3],C.ramp[2]];
   G.parts.push({x:lerp(G.wrist[0],G.wrist[2],u)+(Math.random()-.5)*3,y:lerp(G.wrist[1],G.wrist[3],u)+(Math.random()-.5)*3,vx:-25-Math.random()*45,vy:-8-Math.random()*16,life:.25+Math.random()*.45,col:cols[Math.floor(Math.random()*cols.length)],g:-20,s:Math.random()<.3?2:1})}
  // run animation
- if(G.grounded)G.phase+=gdt*G.speed*.13;
+ {const pc=Math.cos(G.phase),pc2=Math.cos(G.phase+PI);if(G.grounded)G.phase+=gdt*G.speed*.13;
+  if(G.grounded&&G.speed>120&&!G.dead){const nc=Math.cos(G.phase),nc2=Math.cos(G.phase+PI);if((pc>0&&nc<=0)||(pc2>0&&nc2<=0))stepDust(G.x+(pc>0&&nc<=0?4:-3),G.y)}}
+ {const tgt=G.grounded?0:clamp(Math.abs(G.vy)/2800,0,.07);G.sqv+=(-(G.sq-tgt)*560-G.sqv*20)*gdt;G.sq+=G.sqv*gdt;G.sq=clamp(G.sq,-.4,.4)}
+ for(let i=G.dust.length-1;i>=0;i--){const d=G.dust[i];d.t+=gdt;if(d.t>d.life)G.dust.splice(i,1)}
  // coins
  const mag=G.power&&G.power.type==='magnet';
  const cx=G.x,cy=G.y-14;
@@ -839,9 +856,9 @@ function finishTrick(){
  if(G.queued){const q=G.queued;G.queued=null;G.trick={type:q,t:0,dur:q==='spin'?.34:.42}}
 }
 function land(p){
- G.y=p.y;G.lastLand=p.y;if(p.type)G.lastType=p.type;G.vy=0;G.grounded=true;G.airJ=sj()?2:1;G.fullJump=false;G.landT=0;if(G.cele){G.cele=null;G.rot=0}
+ G.landV=Math.max(0,G.vy);{const im=clamp((G.landV-120)/520,0,1);G.sq=-(.1+.22*im);G.sqv=0;dustFX(G.x,G.y,.4+im*.6)}G.y=p.y;G.lastLand=p.y;if(p.type)G.lastType=p.type;G.vy=0;G.grounded=true;G.airJ=sj()?2:1;G.fullJump=false;G.landT=0;if(G.cele){G.cele=null;G.rot=0}
  if(G.trick){const q=G.trick.t/G.trick.dur;if(q>=.78){finishTrick()}else{G.trick=null;G.queued=null;G.rot=0;G.sx=1;G.combo=0;G.comboPts=0;G.stumble=.5;shake=4;SND.sloppy();pop('SLOPPY!','#ff4f7b')}}
- G.queued=null;bankStyle();SND.land();puff(G.x,G.y,6,'#e8e0d8',45);
+ G.queued=null;bankStyle();SND.land();puff(G.x,G.y,3,'#e8e0d8',35);
 }
 
 /* ---------------- drawing ---------------- */
@@ -1712,10 +1729,11 @@ function handPose(){
  if(G.power&&G.power.type==='fly'&&!G.dead){const a=1.5,fl=Math.sin(clock*22)*.04;return{mode:'fly',legs:{f:[a+fl,.05],b:[a-.1-fl,.08]},rot:G.flyPitch==null?-.3:G.flyPitch,sx:1,thumbOut:true,thumb:{a:a-.3,bend:.15},digitsTop:true,ring:{e:1,a:a-.05+fl},pinky:{e:1,a:a-.12-fl}}}
  if(G.dead)return{mode:'crash',phase:clock*4,rot:G.rot,sx:1,thumb:{a:2.2+Math.sin(clock*20)*.5,bend:0}};
  const k=clamp((G.speed-60)/110,0,1);let p;
- if(G.grounded){p={mode:'run',phase:G.phase,k,rot:.05*Math.sin(G.phase*2),sx:1,thumb:{a:.35-Math.sin(G.phase)*lerp(.3,.65,k),bend:.3+.25*Math.max(0,-Math.cos(G.phase))}};
+ if(G.grounded){const cr=G.landT<.18?(1-G.landT/.18)*clamp(.35+(G.landV-120)/700,.35,1):0;p={mode:'run',phase:G.phase,k,crouch:cr,rot:.05*Math.sin(G.phase*2)+.07*k,sx:1,thumb:{a:.35-Math.sin(G.phase)*lerp(.3,.65,k),bend:.3+.25*Math.max(0,-Math.cos(G.phase))}};
   if(G.landT<.35){const w=1-G.landT/.35;p.thumb.a+=.9*w+Math.sin(G.landT*40)*.5*w;p.thumb.bend*=1-w*.8}
   const sup=(G.sol||[]).find(s=>Math.abs(s.y-G.y)<1&&G.x>=s.x-3&&G.x<=s.x+s.w+3);
   if(sup){const ed=sup.x+sup.w-G.x;if(ed<8){p.thumb.a=1.75+Math.sin(clock*28)*.45;p.thumb.bend=0}}}
+ else if(!G.trick&&clock-G.jumpT<.12&&G.vy<0)p={mode:'push',e:(clock-G.jumpT)/.12,rot:-.06,sx:1,thumb:{a:1.9,bend:.05}};
  else p={mode:G.trick?'tuck':'air',rising:G.vy<0,rot:G.rot,sx:G.sx,thumb:G.trick?{a:.35,bend:1}:(G.vy<0?{a:1.8,bend:.05}:{a:1.5+Math.sin(clock*17)*.4,bend:.1})};
  if(G.cele)applyCele(p,G.cele);
  return p}
@@ -1793,10 +1811,14 @@ function render(){
  // shadow + hand
  if(!G.dead&&!HIDEHAND){let sy=null;for(const p of (G.sol||G.plats))if(G.x>=p.x&&G.x<=p.x+p.w&&p.y>=G.y-1){sy=sy==null?p.y:Math.min(sy,p.y)}
   if(sy!=null){const w=Math.max(3,10-Math.round((sy-G.y)/7)),hx0=Math.round(G.x-cam);ctx.fillStyle='rgba(10,5,25,.14)';ctx.fillRect(hx0-w-3,sy-1,w*2+7,2);ctx.fillStyle='rgba(10,5,25,.2)';ctx.fillRect(hx0-w,sy-1,w*2+1,2);ctx.fillStyle='rgba(10,5,25,.18)';ctx.fillRect(hx0-w+2,sy-2,w*2-3,1)}}
- if(!HIDEHAND)drawHand(null,G.x-cam,G.y,handPose());
+ drawDust(cam);
+ if(!HIDEHAND){drawHand(null,G.x-cam,G.y,handPose());
+  // smear afterimages while flipping/spinning
+  const spin=G.trick&&!G.dead;if(spin||G.ghost.length){let gc=G.ghost.length>=3?G.ghost.pop().c:null;if(spin){if(!gc){gc=document.createElement('canvas');gc.width=gc.height=HB}const g=gc.getContext('2d');g.clearRect(0,0,HB,HB);g.drawImage(hc,0,0);g.globalCompositeOperation='source-atop';g.fillStyle='rgba(255,236,250,.45)';g.fillRect(0,0,HB,HB);g.globalCompositeOperation='source-over';G.ghost.unshift({c:gc,x:G.x,y:G.y})}else G.ghost.length=Math.max(0,G.ghost.length-1)
+   for(let i=G.ghost.length-1;i>=(spin?1:0);i--){const gh=G.ghost[i];ctx.globalAlpha=(spin?.42:.3)/(i+1);ctx.drawImage(gh.c,Math.round(gh.x-cam-AX),Math.round(gh.y-AY));}ctx.globalAlpha=1}}
  {const t=tf(-28.5,-19.5-HAND_HIP),t2=tf(-31,-15-HAND_HIP);G.wrist=[G.x-AX+t[0],G.y-AY+t[1],G.x-AX+t2[0],G.y-AY+t2[1]]}
- if(!HIDEHAND){const pl=G.plats.find(q=>G.x>=q.x&&G.x<=q.x+(q.fw||q.w));if(pl&&pl.type!=='roof'&&pl.type!=='car'&&pl.type!=='hwramp'||G.decor.some(d=>G.x>=d.x0&&(d.x1==null||G.x<=d.x1))){shx.clearRect(0,0,HB,HB);shx.globalCompositeOperation='source-over';shx.drawImage(hc,0,0);shx.globalCompositeOperation='source-in';shx.fillStyle='#140820';shx.fillRect(0,0,HB,HB);shx.globalCompositeOperation='source-over';ctx.globalAlpha=.24;ctx.drawImage(shc,Math.round(G.x-cam-AX+6),Math.round(G.y-AY-4));ctx.globalAlpha=1}}
- if(!HIDEHAND)ctx.drawImage(hc,Math.round(G.x-cam-AX),Math.round(G.y-AY));
+ if(!HIDEHAND){const pl=G.plats.find(q=>G.x>=q.x&&G.x<=q.x+(q.fw||q.w));if(pl&&pl.type!=='roof'&&pl.type!=='car'&&pl.type!=='hwramp'||G.decor.some(d=>G.x>=d.x0&&(d.x1==null||G.x<=d.x1))){shx.clearRect(0,0,HB,HB);shx.globalCompositeOperation='source-over';shx.drawImage(hc,0,0);shx.globalCompositeOperation='source-in';shx.fillStyle='#140820';shx.fillRect(0,0,HB,HB);shx.globalCompositeOperation='source-over';ctx.globalAlpha=.24;handBlit(shc,G.x-cam+6,G.y-4);ctx.globalAlpha=1}}
+ if(!HIDEHAND)handBlit(hc,G.x-cam,G.y);
  if(G.shield>0&&!G.dead){for(let i=0;i<8;i++){const a=clock*6+i*TAU/8;ctx.fillStyle=(i+Math.floor(clock*10))%2?'#ffd23f':'#ffffff';ctx.fillRect(Math.round(G.x-cam+Math.cos(a)*15),Math.round(G.y-16+Math.sin(a)*19),2,2)}}
  for(const p of G.parts){ctx.fillStyle=p.col;ctx.fillRect(Math.round(p.x-cam),Math.round(p.y),p.s,p.s)}
  for(const p of G.pops){ctx.globalAlpha=Math.min(1,p.life*2);txt(p.text,Math.round(p.x-cam),Math.round(p.y),p.col,'center');ctx.globalAlpha=1}
