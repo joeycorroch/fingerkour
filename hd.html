@@ -1017,8 +1017,9 @@ function midSky(s2,o2,Wd,night){
 }
 function drawBG(cam){
  const cy=G?G.camY:0,oy=f=>Math.round(-cy*f);
- dsky(0,H,pal.sky1,pal.sky2,6);RAYOCC=[];
  const night=palTarget==='night',low=palTarget==='sunset'||palTarget==='dawn';
+ const PHOTO=HD&&photoBG(cam,cy);if(PHOTO){skyLife(night);{const clr=!G||G.weather==='clear';if(clr&&!night)heatHaze(Math.round(H*.5),Math.round(H*.7),low?1:.6)}}
+ if(!PHOTO){dsky(0,H,pal.sky1,pal.sky2,6);RAYOCC=[];
  if(night){for(let i=0;i<60;i++){const sx=((hash(i)*W*2-cam*.02)%W+W)%W,sy=hash(i+77)*110+oy(.02);ctx.fillStyle=(Math.sin(clock*3+i)>.6)?'#ffffff':'#b8b8ff';ctx.fillRect(sx|0,sy|0,1,1);if(hash(i+5)>.9&&Math.sin(clock*3+i)>.6){ctx.fillRect((sx|0)-1,sy|0,3,1);ctx.fillRect(sx|0,(sy|0)-1,1,3)}}}
  const sunY=(low?96:44)+oy(.04),sr=low?20:12;glow(SUNX,sunY,sr*5,rgbaOf('sun',night?.18:.45));
  const sc=pal.sun;pcirc(SUNX,sunY,sr+1,q8(sc.map(v=>v*.85)));pcirc(SUNX,sunY,sr,P('sun'));ctx.fillStyle=dpat(q8(sc.map(v=>v*.9)),6);ctx.fillRect(SUNX-sr,sunY+Math.round(sr*.35),sr*2,Math.round(sr*.7));
@@ -1040,7 +1041,7 @@ function drawBG(cam){
  if(G){drawTreeLine(o2,G.envPark||0,cam);drawHarbour(o2,G.envDock||0,cam);drawSea(o2,G.envSea||0)}
  dhaze(Math.round(H*.6+o2),60,q8(pal.sky2),5);
  godRays(SUNX,(low?96:44)+oy(.04),night,low);
- {const clr=!G||G.weather==='clear';if(clr&&!night)heatHaze(Math.round(H*.5+o2),Math.round(H*.72+o2),low?1:.6)}
+ {const clr=!G||G.weather==='clear';if(clr&&!night)heatHaze(Math.round(H*.5+o2),Math.round(H*.72+o2),low?1:.6)}}
  // telegraph poles: shaded timber with crossarms and insulators
  const s3=cam*.6,ps=150,o3=oy(.55),nc=pal.near,NB=q8(nc),NL=q8(nc.map(v=>Math.min(255,v*1.5+20))),NO=q8(nc.map(v=>v*.6));
  const poleA=G?1-Math.max(G.envSea||0,G.envDock||0,G.envHwy||0)*.85:1;ctx.globalAlpha=poleA;
@@ -1448,7 +1449,7 @@ const TEXHD=(()=>{const N=256,blot=fbmTile(N,N,64,5,11),fine=fbmTile(N,N,4,2,23)
  const c=document.createElement('canvas');c.width=c.height=N;const g=c.getContext('2d'),id=g.createImageData(N,N),d=id.data;
  for(let i=0;i<N*N;i++){let v=.5+(blot[i]-.5)*.9+(fine[i]-.5)*.7+(hash(i*1.7)-.5)*.22;if(pit[i]>.7)v-=(pit[i]-.7)*1.2;v=Math.max(0,Math.min(1,v));const k=Math.round(128+(v-.5)*120);d[i*4]=k;d[i*4+1]=Math.round(k*.98);d[i*4+2]=Math.round(k*.95);d[i*4+3]=255}
  g.putImageData(id,0,0);return c})();
-function texPattern(x2,ox,oy){const p=x2.createPattern(TEXHD,'repeat');try{p.setTransform(new DOMMatrix().translate(-(((ox%256)+256)%256),-(((oy%256)+256)%256)))}catch(e){}return p}
+function texPattern(x2,ox,oy,src){const p=x2.createPattern(src||(PH.ready&&PH.tex.wall)||TEXHD,'repeat');try{p.setTransform(new DOMMatrix().translate(-(((ox%256)+256)%256),-(((oy%256)+256)%256)))}catch(e){}return p}
 function hdTexture(cv,wx,str,streaks){// overlay real-looking grime/grain onto an opaque silhouette, plus rain streaks from roof edges
  const w=cv.width,h=cv.height;if(!w||!h)return;const x2=cv.getContext('2d');const RD=realism(x2,w,h,streaks?{bump:.42,max:24,tex:.1,ox:wx,ao:.35,sat:.9}:{bump:.3,max:14,tex:.08,ox:wx,sat:.88});
  const t=document.createElement('canvas');t.width=w;t.height=h;const tg=t.getContext('2d');tg.fillStyle=texPattern(tg,wx,0);tg.fillRect(0,0,w,h);tg.globalCompositeOperation='destination-in';tg.drawImage(cv,0,0);
@@ -1459,7 +1460,7 @@ function hdTexture(cv,wx,str,streaks){// overlay real-looking grime/grain onto a
   const len=18+Math.floor(hash(wxx*2.7)*70);for(let k=0;k<len;k+=3){const a=st*.4*Math.pow(1-k/len,1.6);if(a<.01)break;x2.fillStyle=`rgba(30,18,24,${a.toFixed(3)})`;x2.fillRect(x,y+2+k,1,3)}}
  // grime gathering toward the pavement
  const gg=x2.createLinearGradient(0,h-34,0,h);gg.addColorStop(0,'rgba(40,26,20,0)');gg.addColorStop(1,'rgba(40,26,20,.28)');x2.fillStyle=gg;x2.fillRect(0,h-34,w,34);x2.restore()}
-function liveTex(x,y,w,h,cam,str){if(w<=0||h<=0)return;ctx.save();ctx.globalAlpha=str;ctx.globalCompositeOperation='overlay';ctx.fillStyle=texPattern(ctx,cam,0);ctx.fillRect(x,y,w,h);ctx.restore()}
+function liveTex(x,y,w,h,cam,str,src){if(w<=0||h<=0)return;ctx.save();ctx.globalAlpha=str;ctx.globalCompositeOperation='overlay';ctx.fillStyle=texPattern(ctx,cam,0,src);ctx.fillRect(x,y,w,h);ctx.restore()}
 // ---- volumetric clouds: fBm density, lit from the sun, soft edges ----
 
 // ---- realism filter: bump-mapped relief from luminance, warm key / cool fill light, material grain, soft AO ----
@@ -1475,6 +1476,32 @@ function realism(x2,w,h,o){if(w<2||h<2)return;let id;try{id=x2.getImageData(0,0,
   const m=1+n,k=b+g+occ;
   d[j]=Math.max(0,Math.min(255,r*m+k*(k>0?1.08:.85)));d[j+1]=Math.max(0,Math.min(255,gg*m+k*(k>0?.98:.9)));d[j+2]=Math.max(0,Math.min(255,bb*m+k*(k>0?.8:1.15)))}
  x2.putImageData(id,0,0);return d}
+
+// ---- photo-real backdrops + photo materials (generated with Higgsfield), crushed through a retro filter ----
+const PH={ready:false,wide:[],tex:{},cur:-1,prev:-1,ft:1,url:'https://d2ol7oe51mr4n9.cloudfront.net/user_3LlNMm4Ty7ramMXY4EU3u3nTKcw/bb21b373-ae12-49e3-9efa-94148881e625.js'};
+function retroPhoto(img){// downsampled photo -> 4-bit-per-channel colour with 4x4 ordered dither, a touch of punch
+ const w=img.width,h=img.height,c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(img,0,0);
+ const id=g.getImageData(0,0,w,h),d=id.data;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4,t=BAYER[((y&3)<<2)|(x&3)]/16-.47;
+  const l=d[i]*.3+d[i+1]*.59+d[i+2]*.11;for(let k=0;k<3;k++){let v=d[i+k];v=l+(v-l)*1.12;v=(v-128)*1.06+128;v=Math.round(Math.max(0,Math.min(255,v))/255*15+t);d[i+k]=Math.max(0,Math.min(15,v))*17}}
+ g.putImageData(id,0,0);const wd=document.createElement('canvas');wd.width=w*2;wd.height=h;const wg=wd.getContext('2d');wg.drawImage(c,0,0);wg.save();wg.translate(w*2,0);wg.scale(-1,1);wg.drawImage(c,0,0);wg.restore();return wd}
+function loadPhotos(){if(!HD||PH.loading)return;PH.loading=true;
+ fetch(PH.url).then(r=>r.text()).then(t=>{const o=JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1));let n=0;const tot=o.bg.length+3,done=()=>{if(++n===tot){PH.ready=true;if(G)for(const p of G.plats)p._fc=null;for(const k in LAYC){for(const c in LAYC[k].c)LAYC[k].c[c].width=0;delete LAYC[k]}}};
+  o.bg.forEach((u,i)=>{const im=new Image();im.onload=()=>{PH.wide[i]=retroPhoto(im);done()};im.onerror=done;im.src=u});
+  for(const k of['wall','pave','road']){const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.width;c.height=im.height;c.getContext('2d').drawImage(im,0,0);PH.tex[k]=c;done()};im.onerror=done;im.src=o.tex[k]}})
+ .catch(()=>{PH.loading=false})}
+function photoIdx(){if(G&&G.mode==='trip'&&G.trip!=null)return G.trip;return({day:0,sunset:4,night:6,dawn:3})[palTarget]??0}
+function photoStrips(img,cam,cy,a){const IW=img.width,IH=img.height,top=Math.round(-26-cy*.06);ctx.globalAlpha=a;
+ if(top>0){ctx.drawImage(img,0,0,IW,1,0,0,W,top)}
+ for(let y=Math.max(0,top);y<H;y+=3){const sy=y-top;if(sy>=IH)break;const f=.012+.12*Math.max(0,Math.min(1,(sy-60)/170));const sx=Math.floor(((cam*f)%IW+IW)%IW),w1=Math.min(W,IW-sx),hh=Math.min(3,IH-sy);
+  ctx.drawImage(img,sx,sy,w1,hh,0,y,w1,hh);if(w1<W)ctx.drawImage(img,0,sy,W-w1,hh,w1,y,W-w1,hh)}
+ if(top+IH<H)ctx.drawImage(img,0,IH-1,IW,1,0,top+IH,W,H-top-IH);ctx.globalAlpha=1}
+function photoBG(cam,cy){if(!PH.ready)return false;const idx=photoIdx(),img=PH.wide[idx];if(!img)return false;
+ if(PH.cur!==idx){PH.prev=PH.cur;PH.cur=idx;PH.ft=PH.prev<0?1:0}PH.ft=Math.min(1,PH.ft+1/90);
+ if(PH.ft<1&&PH.wide[PH.prev])photoStrips(PH.wide[PH.prev],cam,cy,1);photoStrips(img,cam,cy,PH.ft<1?PH.ft:1);
+ // aerial depth: a soft band of haze where the photo meets the street scene
+ const g=ctx.createLinearGradient(0,H*.48,0,H*.8),hz=pal.sky2;g.addColorStop(0,`rgba(${hz[0]|0},${hz[1]|0},${hz[2]|0},0)`);g.addColorStop(1,`rgba(${hz[0]|0},${hz[1]|0},${hz[2]|0},.28)`);ctx.fillStyle=g;ctx.fillRect(0,H*.48,W,H*.52);
+ return true}
 const CLD={};
 function cloudHD(cx,cy,c,i){const v=i%5,key=q8(c)+v;let cc=CLD[key];if(!cc){if(Object.keys(CLD).length>60)for(const k in CLD)delete CLD[k];
   const Wc=96,Hc=46,n=fbmTile(Wc,Hc,24,5,v*17+3),n2=fbmTile(Wc,Hc,8,3,v*31+9);cc=document.createElement('canvas');cc.width=Wc;cc.height=Hc;const g=cc.getContext('2d'),id=g.createImageData(Wc,Hc),d=id.data;
@@ -1975,7 +2002,7 @@ function render(){
  for(const d of G.decor)drawSite(d,cam);
  drawHwyRoad(cam);
  for(const p of G.plats)drawPlat(p,cam);
- if(HD)for(const p of G.plats){if(!['roof','street','cstreet','grass','container'].includes(p.type))continue;const x0=Math.max(0,Math.round(p.x-cam)),x1=Math.min(W,Math.round(p.x+p.w-cam));if(x1>x0)liveTex(x0,p.y,x1-x0,VB-p.y,cam,p.type==='roof'?.6:.45)}
+ if(HD)for(const p of G.plats){if(!['roof','street','cstreet','grass','container'].includes(p.type))continue;const x0=Math.max(0,Math.round(p.x-cam)),x1=Math.min(W,Math.round(p.x+p.w-cam));if(x1>x0){if((p.type==='street'||p.type==='cstreet')&&PH.ready){liveTex(x0,p.y,x1-x0,10,cam,.55,PH.tex.pave);liveTex(x0,p.y+10,x1-x0,VB-p.y-10,cam,.6,PH.tex.road)}else liveTex(x0,p.y,x1-x0,VB-p.y,cam,p.type==='roof'?.6:.45)}}
  wetPass(cam);
  roadworksFront(cam);
  for(let i=0;i<G.plats.length-1;i++){const a=G.plats[i],b=G.plats[i+1],drop=b.y-a.y;if(drop<18||a.type==='sign'||b.type==='sign')continue;const ex=Math.round(a.x+a.w-cam);if(ex<-20||ex>W+20)continue;
@@ -2334,7 +2361,7 @@ function frame(now){
  if(irisT>0){irisT-=dt;iris((1-irisT/.7)*420,W/2,H/2)}
  requestAnimationFrame(frame);
 }
-newGame('demo');state='splash';show('sSplash');
+newGame('demo');state='splash';if(HD)loadPhotos();show('sSplash');
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{});
 requestAnimationFrame(frame);
 window.__fk={get G(){return G},input,play,get state(){return state}};
