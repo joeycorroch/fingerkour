@@ -612,8 +612,8 @@ function drawZips(cam){for(const z of G.zips){const x0=Math.round(z.x0-cam),x1=M
 function difficulty(){return G.mode==='trip'?TRIPS[G.trip].diff+.25*clamp(G.genX/G.len,0,1):Math.min(1,G.genX/25000)}
 function nextZone(){G.pi++;const pl=G.plan[G.pi%G.plan.length];G.zone=pl[0];G.zoneEnd=G.genX+(pl[1]||1e9);
  G.marks.push({x:G.genX+20,name:ZNAME[G.zone]});if(G.zone==='scaffold')G.decor.push({k:'site',x0:G.genX+4,x1:null,top:ROOF_Y})}
-const HAZ_AFTER={chinatown:['rat','firecracker'],street:['bagpile','dog'],roof:['bags','wire'],park:['sprinkler','sprinkler'],beach:['crab','crab'],docks:['steam','steam']};
-const CHAIN={chinatown:['noodlecart','veggie','lion','urn'],street:['busstop','skip','boxes','bench','newsbox'],roof:['duct','solar','skylight','tank'],park:['picnic','hedgebox','fountain','bench'],beach:['surfrack','esky','sandcastle'],docks:['forklift','pallet','barrel','rope']};
+const HAZ_AFTER={chinatown:['rat','firecracker'],street:['bagpile','drunk'],roof:['bags','wire'],park:['sprinkler','sprinkler'],beach:['crab','crab'],docks:['steam','steam']};
+const CHAIN={chinatown:['noodlecart','veggie','lion','urn'],street:['busstop','skip','prod3','stoop','crate1','roadwork'],roof:['duct','solar','skylight','tank'],park:['picnic','hedgebox','fountain','bench'],beach:['surfrack','esky','sandcastle'],docks:['forklift','pallet','barrel','rope']};
 function placeObs(x,w,y,zone,d){const n0=G.obs.length;placeObs0(x,w,y,zone,d);if(zone==='street')for(let i=n0;i<G.obs.length;i++)G.obs[i].grit=1;if(PED_ZONES[zone]&&y>=STREET_Y-4&&w>=150&&rng()<.4+.3*d)placePed(x,w,y,zone)}
 const PED_ZONES={street:1,chinatown:1,park:1,beach:1};
 const PED_LOOKS=[{},{T:'R',t:'r',H:'Y',h:'y'},{T:'B',t:'b',H:'D',h:'E',S:'C',s:'c'},{G:'T',g:'t',H:'D',h:'E'},{G:'R',g:'r',S:'C',s:'c',H:'E',h:'E'},{T:'P',t:'R',H:'h',h:'E'},{G:'Y',g:'y',N:'D',n:'E',H:'Y',h:'y'},{G:'B',g:'b',S:'C',s:'c'}];
@@ -632,7 +632,7 @@ function placeObs0(x,w,y,zone,d){
   let k=pool[Math.floor(rng()*pool.length)];if(ox+OBS[k].w>x+w-24){const fits=pool.filter(q=>ox+OBS[q].w<=x+w-24);if(!fits.length)break;k=fits[Math.floor(rng()*fits.length)]}
   const ob=addObs(ox,y,k);placed++;let end=ox+ob.w;
   if(ob.w>=40){const top=y-ob.h;
-   if(rng()<.3+.35*d){const hk=k==='skip'?'bags':(k==='planter'?'dog':(zone==='beach'||zone==='docks')?'gull':'bird');const hz=addObs(ob.x+Math.round(ob.w*R(.45,.65)-OBS[hk].w/2),top,hk);coinArc(hz.x-14,hz.x+hz.w+14,top-hz.h-20)}
+   if(rng()<.3+.35*d){const hk=k==='skip'?'bag1':(k==='planter'?'dog':(zone==='beach'||zone==='docks')?'gull':'bird');const hz=addObs(ob.x+Math.round(ob.w*R(.45,.65)-OBS[hk].w/2),top,hk);coinArc(hz.x-14,hz.x+hz.w+14,top-hz.h-20)}
    else for(let j=0;j*11<ob.w-8;j++)addCoin(ob.x+5+j*11,top-10);
    ox=end+R(42,78);continue}
   if(k==='crate'&&zone==='roof'&&rng()<.35&&end+16<x+w-24){const st=addObs(end,y,'crates');end+=st.w;for(let j=0;j<2;j++)addCoin(st.x+4+j*8,y-st.h-10)}
@@ -769,7 +769,7 @@ function gen(){
   if(w>66&&rng()<.4){const k=POOLS.fire[Math.floor(rng()*2)];addObs(x+Math.round(w/2),y,k)}else for(let i=0;i<3;i++)addCoin(x+w/2-12+i*12,y-12);
   G.genX=x+w;G.genY=y;return}
 }
-const OBS={tcan:{w:14,h:20,solid:1},bagpile:{w:22,h:12,hazard:'YUCK! GARBAGE!'},hyd:{w:10,h:14,solid:1},boxes:{w:18,h:16,solid:1},newsbox:{w:12,h:20,solid:1},case1:{w:14,h:10,solid:1},case2:{w:18,h:16,solid:1},roofbox:{w:30,h:9,solid:1},cone:{w:10,h:14,solid:1},crate:{w:16,h:16,solid:1},crates:{w:16,h:32,solid:1},ac:{w:20,h:14,solid:1},vent:{w:10,h:18,solid:1},chimney:{w:14,h:24,solid:1},tank:{w:22,h:22,solid:1},
+const OBS={tcan:{w:14,h:20,solid:1},stoop:{w:34,h:26,solid:1,spr:1},hyd:{w:11,h:22,solid:1,spr:1},hydy:{w:11,h:22,solid:1,spr:1},bagpile:{w:38,h:19,hazard:'YUCK! GARBAGE!',spr:1},can:{w:19,h:21,solid:1,spr:1},bcan:{w:15,h:20,solid:1,spr:1},bag1:{w:19,h:12,hazard:'YUCK! GARBAGE!',spr:1},roadwork:{w:26,h:22,solid:1,spr:1},boxes2:{w:19,h:20,solid:1,spr:1},boxopen:{w:20,h:14,solid:1,spr:1},cone2:{w:6,h:8,solid:1,spr:1},barri:{w:22,h:21,solid:1,spr:1},gravel:{w:19,h:19,solid:1,spr:1},prod2:{w:16,h:18,solid:1,spr:1},prod1:{w:17,h:18,solid:1,spr:1},crate1:{w:19,h:19,solid:1,spr:1},crate2:{w:20,h:19,solid:1,spr:1},prod3:{w:29,h:17,solid:1,spr:1},drunk:{w:13,h:33,hazard:'HIC! GRUMPY OLD MAN!',spr:1},boxes:{w:18,h:16,solid:1},newsbox:{w:12,h:20,solid:1},case1:{w:14,h:10,solid:1},case2:{w:18,h:16,solid:1},roofbox:{w:30,h:9,solid:1},cone:{w:10,h:14,solid:1},crate:{w:16,h:16,solid:1},crates:{w:16,h:32,solid:1},ac:{w:20,h:14,solid:1},vent:{w:10,h:18,solid:1},chimney:{w:14,h:24,solid:1},tank:{w:22,h:22,solid:1},
  bin:{w:14,h:20,solid:1},hydrant:{w:10,h:13,solid:1},bench:{w:40,h:11,solid:1},busstop:{w:72,h:30,solid:1},skip:{w:52,h:20,solid:1},planter:{w:56,h:11,solid:1},duct:{w:84,h:14,solid:1},solar:{w:62,h:14,solid:1},skylight:{w:42,h:9,solid:1},timber:{w:44,h:8,solid:1},postbox:{w:12,h:22,solid:1},aframe:{w:12,h:14,solid:1},
  paint:{w:9,h:10,solid:1},bricks:{w:16,h:10,solid:1},cement:{w:18,h:8,solid:1},toolbox:{w:14,h:9,solid:1},pot:{w:9,h:10,solid:1},
  bags:{w:20,h:12,hazard:'YUCK! GARBAGE!'},wire:{w:28,h:9,hazard:'OUCH! BARBED WIRE!'},fuse:{w:12,h:16,hazard:'ZAPPED!'},tv:{w:13,h:22,hazard:'TANGLED!'},bird:{w:10,h:10,hazard:'PECKED!'},
@@ -778,7 +778,7 @@ const OBS={tcan:{w:14,h:20,solid:1},bagpile:{w:22,h:12,hazard:'YUCK! GARBAGE!'},
  picnic:{w:36,h:12,solid:1},hedgebox:{w:18,h:16,solid:1},fountain:{w:24,h:16,solid:1},esky:{w:14,h:12,solid:1},surfrack:{w:34,h:14,solid:1},sandcastle:{w:14,h:11,solid:1},barrel:{w:12,h:16,solid:1},pallet:{w:22,h:6,solid:1},forklift:{w:30,h:22,solid:1},rope:{w:14,h:6,solid:1},
  sprinkler:{w:16,h:14,hazard:'SOAKED!'},magpie:{w:12,h:9,hazard:'SWOOPED BY A MAGPIE!'},crab:{w:12,h:7,hazard:'PINCHED!'},gull:{w:11,h:10,hazard:'SEAGULL ATTACK!'},steam:{w:10,h:30,hazard:'SCALDED!'},nails:{w:18,h:5,hazard:'OUCH! NAILS!'},ped:{w:12,h:22,hazard:'OOF! WALKED INTO SOMEONE!'}};
 const POOLS={highway:['case1','case2','roofbox'],chinatown:['noodlecart','veggie','steamer','urn','lion','rat','bird','rat','firecracker','veggie','bin','steamer'],park:['picnic','hedgebox','fountain','bench','bin','sprinkler','magpie','hedgebox','picnic','bird'],beach:['esky','surfrack','sandcastle','crab','gull','esky','surfrack','bin','crab'],docks:['barrel','pallet','forklift','rope','steam','gull','barrel','crate','crates'],
- street:['tcan','hyd','bench','newsbox','aframe','cone','busstop','busstop','skip','skip','boxes','boxes','bagpile','dog','bird','tcan'],roof:['crate','ac','vent','chimney','tank','duct','duct','solar','solar','skylight','bags','wire','fuse','tv','bird'],
+ street:['can','bcan','hyd','hydy','boxes2','boxopen','crate1','crate2','cone2','roadwork','barri','gravel','prod1','prod2','prod3','stoop','stoop','bagpile','bag1','drunk','drunk','bench','busstop','skip','dog','bird','can'],roof:['crate','ac','vent','chimney','tank','duct','duct','solar','solar','skylight','bags','wire','fuse','tv','bird'],
  scaffold:['paint','bricks','cement','toolbox','nails','timber','timber'],fire:['pot','bird']};
 function addObs(x,y,k){const o={x:Math.round(x),y,k,w:OBS[k].w,h:OBS[k].h,solid:!!OBS[k].solid,ph:Math.random()*6};G.obs.push(o);return o}
 
@@ -1053,7 +1053,7 @@ function castShadow(cv,sIn,str,skip){// 2D ray cast: march a light line across t
 const GR={m:null,a:null,b:null,f:0,lastKey:''};
 function godRays(sx,sy,night,low){// screen-space volumetric light scattering (radial ray march) behind the playfield
  if(!RAYOCC)return;const occ=RAYOCC.concat(RAYPREV);RAYOCC=null;RAYPREV=RAYNEXT;RAYNEXT=[];
- const cl=G&&G.weather&&G.weather!=='clear'?G.wAmt||0:0;let I=(night?.45:low?.95:.8)*(1-cl*.75);if(I<.03)return;
+ const cl=G&&G.weather&&G.weather!=='clear'?G.wAmt||0:0;let I=(night?.45:low?.6:.8)*(1-cl*.75);if(I<.03)return;
  const RW=192,RH=108,s=.5;
  if(GR.q&&(++GR.f%3)){ctx.save();ctx.globalCompositeOperation='screen';ctx.drawImage(GR.q,0,0);ctx.restore();return}
  if(!GR.m){for(const n of['m','a','b']){const c=document.createElement('canvas');c.width=RW;c.height=RH;GR[n]=c}}
@@ -1212,7 +1212,7 @@ function paveFX(sa,sw,y,lights,kerbCol){
   lightPool(lx,y+4,22,4,L[1],a*.55);
   if(wet>.05){ctx.globalAlpha=Math.min(1,wet*.8);for(let yy=y+1;yy<y+10;yy+=2){const ww=3+((yy-y)>>1),jit=Math.round(Math.sin(clock*7+yy+lx)*1);fr(L[1],lx-(ww>>1)+jit,yy,ww,1)}ctx.globalAlpha=1}}}
 // soft-light colour grade + dithered vignette
-const GRADE={day:[255,232,196,.22],sunset:[255,140,90,.30],night:[90,96,220,.28],dawn:[255,170,210,.24]};let GRC=[255,232,196,.22];
+const GRADE={day:[255,232,196,.22],sunset:[255,140,90,.18],night:[90,96,220,.28],dawn:[255,170,210,.24]};let GRC=[255,232,196,.22];
 let VIG=null;
 function mkVig(){const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d'),id=x.createImageData(W,H),B=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
  for(let j=0;j<H;j++)for(let i=0;i<W;i++){const dx=(i-W/2)/(W/2),dy=(j-H*.45)/(H*.62),d=Math.sqrt(dx*dx+dy*dy);let a=Math.max(0,(d-.72)/.5);a=Math.min(1,a);
@@ -1541,7 +1541,7 @@ const OBC=document.createElement('canvas');OBC.width=220;OBC.height=170;const ob
 const OSC=document.createElement('canvas');OSC.width=220;OSC.height=170;const osx=OSC.getContext('2d');
 function obsRender(o,cam,x,rw,rh,bx,by){const main=ctx;obx.setTransform(1,0,0,1,0,0);obx.clearRect(0,0,rw,rh);obx.save();obx.beginPath();obx.rect(0,0,rw,rh);obx.clip();obx.setTransform(1,0,0,1,-bx,-by);
  ctx=obx;try{drawObs(o,cam)}finally{ctx=main;obx.restore()}}
-const ANIMK={bird:1,gull:1,magpie:1,rat:1,crab:1,ped:1,dog:1,sprinkler:1,steam:1,steamer:1,firecracker:1,fuse:1,noodlecart:1,fountain:1,bags:1,ac:1,chimney:1,solar:1};
+const ANIMK={drunk:1,bird:1,gull:1,magpie:1,rat:1,crab:1,ped:1,dog:1,sprinkler:1,steam:1,steamer:1,firecracker:1,fuse:1,noodlecart:1,fountain:1,bags:1,ac:1,chimney:1,solar:1};
 function gritify(g,w,h,seed){let id;try{id=g.getImageData(0,0,w,h)}catch(e){return}const d=id.data;
  for(let i=0,p=0;i<d.length;i+=4,p++){if(d[i+3]<40)continue;const l=d[i]*.3+d[i+1]*.59+d[i+2]*.11;for(let k=0;k<3;k++)d[i+k]=Math.max(0,Math.min(255,(l+(d[i+k]-l)*.78)*.86+(k===0?6:k===2?-2:0)));
   if(hash(p*1.37+seed)<.05){d[i]*=.72;d[i+1]*=.68;d[i+2]*=.66}}g.putImageData(id,0,0)}
@@ -1549,7 +1549,7 @@ function drawObsRim(o,cam){const x=Math.round(o.x-cam);if(x>W+40||x<-130)return;
  const rw=Math.min(220,o.w+56),rh=Math.min(170,o.h+64),bx=x-28,by=Math.round(o.y-o.h)-48,haz=!o.solid,inact=o.off,fk=facadeKey();
  let B=OBC,S=OSC;
  if(o._rc&&o._rc.k===fk){B=o._rc.b;S=o._rc.r}
- else{obsRender(o,cam,x,rw,rh,bx,by);if(o.grit&&!ANIMK[o.k])gritify(obx,rw,rh,Math.round(o.x));
+ else{obsRender(o,cam,x,rw,rh,bx,by);if(o.grit&&!ANIMK[o.k]&&!OBS[o.k].spr)gritify(obx,rw,rh,Math.round(o.x));
   osx.globalCompositeOperation='copy';osx.drawImage(OBC,0,0,rw,rh,0,0,rw,rh);osx.globalCompositeOperation='source-in';osx.fillStyle=haz?'#ff3a5a':'#fff2b8';osx.fillRect(0,0,rw,rh);osx.globalCompositeOperation='source-over';
   if(!ANIMK[o.k]&&x<=W&&x>=-90){const b=document.createElement('canvas'),r=document.createElement('canvas');b.width=r.width=rw;b.height=r.height=rh;b.getContext('2d').drawImage(OBC,0,0);r.getContext('2d').drawImage(OSC,0,0);o._rc={k:fk,b,r};B=b;S=r}}
  if(!(o.k==='bird'||o.k==='gull'||o.k==='magpie'||o.k==='ped')){ctx.fillStyle='rgba(20,8,40,.35)';ctx.fillRect(x-2,Math.round(o.y)-1,o.w+4,2);ctx.fillRect(x,Math.round(o.y)+1,o.w,1)}
@@ -1802,6 +1802,12 @@ function drawCrate(x,y){const W=rmp(WOOD);box(x,y-16,16,16,W,{dither:false});
  ctx.fillStyle=anchor(dpat(W.s,4));ctx.fillRect(x+9,y-12,4,9)}
 function drawObs(o,cam){
  const x=Math.round(o.x-cam),y=o.y;if(x>W||x<-90)return;
+ if(OBS[o.k]&&OBS[o.k].spr){const S=OBSPR[o.k];if(!ART.obs||!S){box(x,y-o.h,o.w,o.h,rmp('#6a6e88'));return}
+  if(o.k==='drunk'){// sways on the spot, sloshes his bottle, grumbles
+   const a=Math.sin(clock*2.3+o.ph)*.075,bx=x+o.w/2;ctx.save();ctx.translate(bx,y);ctx.rotate(a);ctx.drawImage(ART.obs,S.x,S.y,S.w,S.h,-Math.round(S.w/2),-S.h,S.w,S.h);ctx.restore();
+   if(Math.sin(clock*1.7+o.ph)>.93&&!o.dead){txt('HIC!',bx-6,y-S.h-4,'#ffe14a','center')}
+   if(Math.random()<.08)G.parts.push({x:o.x+1,y:y-15,vx:-20-Math.random()*20,vy:-40-Math.random()*30,life:.4,col:Math.random()<.5?'#c8a060':'#f0e0b0',g:200,s:1});return}
+  ctx.drawImage(ART.obs,S.x,S.y,S.w,S.h,x+Math.round((o.w-S.w)/2),y-S.h,S.w,S.h);return}
  switch(o.k){
  case'cone':{const R=rmp('#ff7a1a'),Wt=rmp('#f4f0ea');trirows(x+5,y-14,11,2,10,R,i=>(i>=4&&i<7)?Wt:null);box(x-1,y-3,12,2,rmp(DARK),{dither:false});fr(R.h,x+4,y-14,1,2);break}
  case'crate':drawCrate(x,y);break;
@@ -1976,7 +1982,7 @@ function roadTrench(hx0,hw,y){const sa=Math.max(hx0,-4),sb=Math.min(hx0+hw,W+4);
  for(let i=0;i<4;i++){const wx=hx0+((i*37+Math.floor(clock*10))%Math.max(8,hw-8))+4;if(wx>sa&&wx<sb)fr('rgba(140,200,255,.5)',wx,y+44,4,1)}
  fr('rgba(60,110,170,.55)',sa,y+44,sw,3);fr('rgba(160,210,255,.5)',sa,y+44,sw,1);
  for(let i=0;i<hw;i+=3){const px=hx0+i;if(px<sa||px>=sb)continue;const j=Math.floor(hash(px+Math.floor(curCam))*3);fr('#2a2238',px,y,3,1+j);fr('#6a6480',px,y+j,3,1)}}
-function roadBarrier(bx,y,lamp,sign){bx=Math.round(bx);
+function roadBarrier(bx,y,lamp,sign){bx=Math.round(bx);if(ART.obs){const S=OBSPR[sign?'roadwork':'barri'];fr('rgba(20,8,40,.35)',bx-3,y-1,S.w+2,2);ctx.drawImage(ART.obs,S.x,S.y,S.w,S.h,bx+7-Math.round(S.w/2),y-S.h,S.w,S.h);if(lamp)neonGlow(bx+7+Math.round(S.w/2)-3,y-S.h+2,10,10,'#ffb020',.3+NA*.5);return}
  fr('rgba(20,8,40,.35)',bx-1,y-1,16,2);
  for(const lx of[bx+1,bx+11]){fr(K,lx-1,y-8,4,8);fr('#3a3a52',lx,y-7,2,7);fr(K,lx-1,y-1,4,1)}
  fr(K,bx-1,y-12,16,6);for(let r=0;r<4;r++)for(let i=0;i<14;i++)fr(((i+r)>>1)%2?'#e83c3a':'#f4f0ea',bx+i,y-11+r,1,1);fr('rgba(255,255,255,.45)',bx,y-11,14,1);fr('rgba(40,8,60,.35)',bx,y-8,14,1);
@@ -2305,18 +2311,23 @@ const DWC=document.createElement('canvas');DWC.width=W;DWC.height=H;const dwx=DW
 
 // ======================= ART PACK: record-store intro, high-street facades, cast =======================
 const ART={n:0,ready:false};
-const HSEG=[27,177,89,85,94],HSX=[0,27,204,293,378],HSH=178;
-(function loadArt(){const L=['store','street','mum','boy','car'];for(const k of L){const im=new Image();im.onload=()=>{ART[k]=im;if(++ART.n===L.length){ART.ready=true;if(G)for(const p of G.plats){p._fc=null}}};im.onerror=()=>{};im.src='art/'+k+'.png'}})();
-function hsList(p,need){const fw=p.fw||p.w;if(!p.hsb||p.hsbFw!==fw){p.hsb=[];p.hsbFw=fw;p.hso=-Math.floor(hash(Math.floor(p.x)*1.7)*60);p.hsi=0;p.hsl=-1}const L=p.hsb,seed=Math.floor(p.x);let o=p.hso,i=p.hsi,last=p.hsl;need=Math.min(fw+10,need);
- while(o<need){let k=Math.floor(hash(seed*3+i*29)*5),g=0;while((k===last||k===L.length&&0||(L.length>1&&L[L.length-2].k===k)||(k===0&&last===-1))&&g++<6)k=(k+1)%5;
-  const v=Math.floor(hash(seed*7+i*13)*3);L.push({o,w:HSEG[k],k,v,s:seed+i});o+=HSEG[k]+(hash(seed*5+i*11)<.25?Math.round(4+hash(seed+i*3)*10):0);last=k;i++}
- p.hso=o;p.hsi=i;p.hsl=last;if(L.length<600)p.blds=L.map(b=>({o:b.o,w:b.w,k:b.k===0?'alley':'hs',s:b.s}));return L}
+const HSEGS=[{"x":0,"w":27,"h":178,"y":[0,178,356],"d":0},{"x":27,"w":177,"h":178,"y":[0,178,356],"d":0},{"x":204,"w":89,"h":178,"y":[0,178,356],"d":0},{"x":293,"w":85,"h":178,"y":[0,178,356],"d":0},{"x":378,"w":94,"h":178,"y":[0,178,356],"d":0},{"x":10,"w":136,"h":184,"y":[534,718,902],"d":1},{"x":146,"w":46,"h":184,"y":[534,718,902],"d":1},{"x":192,"w":88,"h":184,"y":[534,718,902],"d":1},{"x":280,"w":88,"h":184,"y":[534,718,902],"d":1},{"x":368,"w":97,"h":184,"y":[534,718,902],"d":1},{"x":0,"w":103,"h":115,"y":[1086,1201,1316],"d":2},{"x":103,"w":129,"h":115,"y":[1086,1201,1316],"d":2}],OBSPR={"stoop":{"x":0,"y":0,"w":34,"h":26},"hyd":{"x":35,"y":0,"w":11,"h":22},"hydy":{"x":47,"y":0,"w":11,"h":22},"bagpile":{"x":59,"y":0,"w":38,"h":22},"can":{"x":98,"y":0,"w":19,"h":21},"bcan":{"x":118,"y":0,"w":15,"h":20},"bag1":{"x":134,"y":0,"w":19,"h":15},"roadwork":{"x":154,"y":0,"w":26,"h":22},"boxes2":{"x":181,"y":0,"w":19,"h":20},"barsign":{"x":0,"y":27,"w":15,"h":37},"open24":{"x":16,"y":27,"w":23,"h":17},"boxopen":{"x":40,"y":27,"w":20,"h":14},"cone2":{"x":61,"y":27,"w":6,"h":8},"barri":{"x":68,"y":27,"w":22,"h":21},"gravel":{"x":91,"y":27,"w":19,"h":19},"prod2":{"x":111,"y":27,"w":16,"h":18},"prod1":{"x":128,"y":27,"w":17,"h":18},"crate1":{"x":146,"y":27,"w":19,"h":19},"crate2":{"x":166,"y":27,"w":20,"h":19},"prod3":{"x":0,"y":65,"w":29,"h":17},"drunk":{"x":30,"y":65,"w":21,"h":35}},HSREC=7;
+(function loadArt(){const L=['store','street','mum','boy','car','obs'];for(const k of L){const im=new Image();im.onload=()=>{ART[k]=im;if(++ART.n===L.length){ART.ready=true;if(G)for(const p of G.plats){p._fc=null}}};im.onerror=()=>{};im.src='art/'+k+'.png'}})();
+function hsList(p,need){const fw=p.fw||p.w;if(!p.hsb||p.hsbFw!==fw){p.hsb=[];p.hsbFw=fw;p.hso=-Math.floor(hash(Math.floor(p.x)*1.7)*40);p.hsi=0}const L=p.hsb,seed=Math.floor(p.x),N=HSEGS.length;let o=p.hso,i=p.hsi;need=Math.min(fw+10,need);
+ const trip=G&&G.mode==='trip'&&G.trip===0,first=trip&&p.x<=-150;
+ while(o<need){let dist=-1;if(trip){const f=(p.x+o)/Math.max(1,G.len);dist=f<.34?0:f<.67?1:2}
+  let k,g=0;do{const r=hash(seed*3+i*29+g*7.7);if(dist>=0&&hash(seed*5+i*17+g)<.72){const own=HSEGS.map((q,j)=>j).filter(j=>HSEGS[j].d===dist);k=own[Math.floor(r*own.length)]}else k=Math.floor(r*N);g++}
+  while(g<9&&(L.length&&L[L.length-1].k===k||L.length>1&&L[L.length-2].k===k));
+  if(first&&o>=150&&!p.hsRec){k=HSREC;p.hsRec=1}
+  const sg=HSEGS[k],v=Math.floor(hash(seed*7+i*13)*3);L.push({o,w:sg.w,k,v,s:seed+i});o+=sg.w;
+  const gh=hash(seed*5+i*11);if(gh<.22){const gw=gh<.11?18:Math.round(4+hash(seed+i*3)*8);L.push({o,w:gw,k:-1,dec:gw>=18?(hash(seed+i*9)<.5?'barsign':'open24'):null,s:seed+i});o+=gw}i++}
+ p.hso=o;p.hsi=i;if(L.length<600)p.blds=L.filter(b=>b.k>=0).map(b=>({o:b.o,w:b.w,k:'hs',s:b.s}));return L}
 function drawHSBlds(p,x,y){const cw=ctx.canvas.width,L=hsList(p,-x+cw+10),fw=p.fw||p.w,a=Math.max(x,-4),bw=Math.min(x+fw,cw+4)-a;
  // dark alley wall behind everything so gaps between buildings read as alleys
  const D=q8(pal.mid.map(v=>v*.35));fr(D,a,y-74,bw,74);ctx.fillStyle=dpat(q8(pal.mid.map(v=>v*.22)),6);ctx.fillRect(a,y-74,bw,74);
- for(const b of L){const bx=x+b.o;if(bx>cw+4||bx+b.w<-4)continue;ctx.drawImage(ART.street,HSX[b.k],b.v*HSH,b.w,HSH,bx,y-HSH,b.w,HSH)}
+ for(const b of L){const bx=x+b.o;if(bx>cw+40||bx+b.w<-40)continue;if(b.k<0){if(b.dec&&ART.obs){const S=OBSPR[b.dec];ctx.drawImage(ART.obs,S.x,S.y,S.w,S.h,bx+Math.round((b.w-S.w)/2)+(b.dec==='barsign'?2:0),y-62-S.h/2,S.w,S.h)}continue}const sg=HSEGS[b.k];ctx.drawImage(ART.street,sg.x,sg.y[b.v],b.w,sg.h,bx,y-sg.h,b.w,sg.h)}
  // sit the baked art in the scene's light
- ctx.save();ctx.globalCompositeOperation='source-atop';const sk=pal.sky2;ctx.fillStyle=`rgba(${sk[0]|0},${sk[1]|0},${sk[2]|0},${(.1-NA*.04).toFixed(3)})`;ctx.fillRect(a,y-HSH,bw,HSH);ctx.restore()}
+ ctx.save();ctx.globalCompositeOperation='source-atop';const sk=pal.sky2;ctx.fillStyle=`rgba(${sk[0]|0},${sk[1]|0},${sk[2]|0},${(.1-NA*.04).toFixed(3)})`;ctx.fillRect(a,y-184,bw,184);ctx.restore()}
 // cast sprites with a simple two-leg walk cycle cut from a single still
 function walkSprite(img,x,y,ph,walking,legFrac){const w=img.width,h=img.height,lt=Math.round(h*legFrac),bob=walking?Math.round(Math.abs(Math.sin(ph))*1):0,X=Math.round(x-w/2),Y=Math.round(y-h);
  ctx.drawImage(img,0,0,w,lt,X,Y-bob,w,lt);if(!walking){ctx.drawImage(img,0,lt,w,h-lt,X,Y+lt,w,h-lt);return}
