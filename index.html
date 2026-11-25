@@ -696,35 +696,45 @@ function genAlienRoof(d){// side-on skyscrapers with real side faces (perspectiv
 function BKS(k,dx,dy,dw,dh,sy,sh){const Q=BK[k];sy=sy||0;sh=sh==null?Q.h-sy:sh;ARTI(ART.bk,Q.x*AS,(Q.y+sy)*AS,Q.w*AS,sh*AS,dx,dy,dw==null?Q.w:dw,dh==null?sh:dh)}
 function bkCol(k,x,T,bot,cap,dw){const Q=BK[k],bh=Q.h-cap;BKS(k,x,T,dw,Q.h);for(let y=T+Q.h-1;y<bot;y+=bh-1)BKS(k,x,y,dw,bh,cap,bh)}
 const ROOFC=['#3a3330','#3a3f38','#2c2f34','#4a3f32','#33363a'];
-function roofDeck(p,x,w,T,swL,swR,S){// the flat roof seen slightly from above, receding toward the vanishing point
- const mid=W/2,D=13,k=.9,bx0=mid+(x-swL*.5-mid)*k,bx1=mid+(x+w+swR*.5-mid)*k,by=T-D,col=ROOFC[S.r%5];
- ctx.fillStyle='#0c0e10';ctx.beginPath();ctx.moveTo(x-1,T+2);ctx.lineTo(bx0-1,by-3);ctx.lineTo(bx1+1,by-3);ctx.lineTo(x+w+1,T+2);ctx.closePath();ctx.fill();
- const g=ctx.createLinearGradient(0,by,0,T);g.addColorStop(0,shade(col,.55));g.addColorStop(1,shade(col,1.05));ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(x,T+2);ctx.lineTo(bx0,by);ctx.lineTo(bx1,by);ctx.lineTo(x+w,T+2);ctx.closePath();ctx.fill();
- ctx.save();ctx.clip();ctx.fillStyle=dpat(shade(col,.8),5);ctx.fillRect(Math.min(x,bx0),by,Math.max(x+w,bx1)-Math.min(x,bx0),T-by+2);
- for(let i=0;i<Math.floor(w/70);i++){const h=hash(p.seed+i*9.1),vx=x+25+i*70+h*30,vy=by+3+h*4;ctx.fillStyle='#16181b';ctx.fillRect(vx,vy,10+h*8,4);ctx.fillStyle=shade(col,1.3);ctx.fillRect(vx,vy,10+h*8,1);if(h>.6){ctx.fillStyle='rgba(150,255,190,.35)';ctx.fillRect(vx+2,vy+1,6,2)}}
- ctx.fillStyle='rgba(120,255,170,.10)';ctx.fillRect(Math.min(x,bx0),by,Math.max(x+w,bx1)-Math.min(x,bx0),2);ctx.restore();
- ctx.fillStyle=shade(col,1.25);ctx.fillRect(bx0,by-2,bx1-bx0,2);ctx.fillStyle='#0c0e10';ctx.fillRect(bx0,by-3,bx1-bx0,1)}
+const RD=13;// how far the roof recedes (eye slightly above the rooftops)
+function roofDeck(p,x,w,T,dx0,dx1,S){// flat roof floor: front edge at the parapet, back edge shifted toward the vanishing point
+ const by=T-RD,bx0=x+dx0,bx1=x+w+dx1,col=ROOFC[S.r%5];
+ const g=ctx.createLinearGradient(0,by,0,T);g.addColorStop(0,shade(col,.55));g.addColorStop(1,shade(col,1.05));ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(x,T+1);ctx.lineTo(bx0,by);ctx.lineTo(bx1,by);ctx.lineTo(x+w,T+1);ctx.closePath();ctx.fill();
+ ctx.save();ctx.clip();ctx.fillStyle=dpat(shade(col,.8),5);ctx.fillRect(Math.min(x,bx0),by,Math.max(x+w,bx1)-Math.min(x,bx0),RD+2);
+ for(let i=0;i<Math.floor(w/70);i++){const h=hash(p.seed+i*9.1),f=(3+h*4)/RD,vx=x+25+i*70+h*30+(dx0+(dx1-dx0)*(25+i*70)/w)*(1-f),vy=by+3+h*4;ctx.fillStyle='#16181b';ctx.fillRect(vx,vy,10+h*8,4);ctx.fillStyle=shade(col,1.3);ctx.fillRect(vx,vy,10+h*8,1);if(h>.6){ctx.fillStyle='rgba(150,255,190,.35)';ctx.fillRect(vx+2,vy+1,6,2)}}
+ ctx.restore();
+ // back parapet along the far edge
+ ctx.fillStyle='#0c0e10';ctx.fillRect(bx0,by-3,bx1-bx0,1);ctx.fillStyle=shade(col,1.25);ctx.fillRect(bx0,by-2,bx1-bx0,2)}
+function sideFace(p,S,left,X,T,sw,bot){// side wall sheared so its top edge runs up to the roof's back corner
+ ctx.save();ctx.translate(X,T);ctx.transform(1,left?RD/sw:-RD/sw,0,1,0,0);const x0=left?-sw:0,H2=bot-T+RD+4;
+ ctx.fillStyle='#101215';ctx.fillRect(x0,0,sw+1,H2);
+ if(S.k==='B'){bkCol('b'+S.r+(left?'Ls':'Rs'),x0,-1,H2,S.cap,sw+1)}
+ else{const r=S.r,WT=BK['a'+r+'W0'],M=BK['a'+r+'M'];for(let y=M.h-4;y<H2;y+=WT.h-1)BKS('a'+r+'W0',x0,y,sw+1,WT.h);BKS('a'+r+'M',x0,0,sw+1,M.h,0,M.h)}
+ const g=ctx.createLinearGradient(x0,0,x0+sw,0);g.addColorStop(left?0:1,'rgba(4,10,8,.55)');g.addColorStop(left?1:0,'rgba(4,10,8,.2)');ctx.fillStyle=g;ctx.fillRect(x0,0,sw+1,H2);
+ ctx.restore()}
 function drawKitBld(p,cam){if(!ART.bk)return;const x=Math.round(p.x-cam),w=p.w,T=Math.round(p.y)-1;if(x>W+40||x+w<-40)return;
  const S=BKST[p.st],bot=VB+2,mid=W/2;
- // perspective: the vanishing point sits at screen centre, so a building right of centre shows its left face and vice versa
- const swL=x>mid?Math.min(30,Math.round((x-mid)*.17)):0,swR=x+w<mid?Math.min(30,Math.round((mid-x-w)*.17)):0;
- ctx.save();roofDeck(p,x,w,T,swL,swR,S);ctx.fillStyle='#121417';ctx.fillRect(x+1,T+3,w-2,bot-T-3);if(swL>1)ctx.fillRect(x-swL+1,T+6,swL,bot-T-6);if(swR>1)ctx.fillRect(x+w-1,T+6,swR,bot-T-6);
- if(S.k==='B'){const r=S.r,cap=S.cap;
-  if(swL>1)bkCol('b'+r+'Ls',x-swL+2,T,bot,cap,swL);
-  if(swR>1)bkCol('b'+r+'Rs',x+w-2,T,bot,cap,swR);
-  let xx=x;const seq=['b'+r+'Lf',...p.parts.map(i=>'b'+r+'M'+i),'b'+r+'Rf'];
+ // perspective: the vanishing point sits at screen centre; the roof's back edge and the visible side wall both recede toward it
+ const dx0=Math.round(clamp((mid-x)*.17,-30,30)),dx1=Math.round(clamp((mid-x-w)*.17,-30,30)),swL=dx0<-1?-dx0:0,swR=dx1>1?dx1:0;
+ ctx.save();
+ if(swL)sideFace(p,S,true,x+1,T,swL,bot);if(swR)sideFace(p,S,false,x+w-1,T,swR,bot);
+ roofDeck(p,x,w,T,dx0,dx1,S);
+ ctx.fillStyle='#121417';ctx.fillRect(x+1,T+3,w-2,bot-T-3);
+ if(S.k==='B'){const r=S.r,cap=S.cap;let xx=x;const seq=['b'+r+'Lf',...p.parts.map(i=>'b'+r+'M'+i),'b'+r+'Rf'];
   for(const k of seq){bkCol(k,xx,T,bot,cap);xx+=BK[k].w-2}}
  else{const r=S.r,Lk='a'+r+'L',Mk='a'+r+'M',Rk='a'+r+'R',L=BK[Lk],M=BK[Mk],Rr=BK[Rk],WT=BK['a'+r+'W0'],top=T+M.h-4;
-  const side=(sx,sw)=>{for(let y=top;y<bot;y+=WT.h-1)BKS('a'+r+'W0',sx,y,sw,WT.h);BKS(Mk,sx,T,sw,M.h,0,M.h);ctx.fillStyle='rgba(6,16,12,.5)';ctx.fillRect(sx,T,sw,bot-T);
-   const g=ctx.createLinearGradient(sx,0,sx+sw,0);g.addColorStop(0,'rgba(0,0,0,.25)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(sx,T,sw,bot-T)};
-  if(swL>1)side(x-swL+2,swL);if(swR>1)side(x+w-2,swR);
   ctx.save();ctx.beginPath();ctx.rect(x,T,w,bot-T);ctx.clip();
   for(let y=top,row=0;y<bot;y+=WT.h-1,row++)for(let xx=x+6,col=0;xx<x+w;xx+=WT.w-1,col++){const h=hash(p.seed+row*31.7+col*7.3);BKS('a'+r+'W'+(h<.2?2:h<.55?1:0),xx,y)}
   for(let y=T+L.h-1;y<bot;y+=13){BKS(Lk,x,y,L.w,13,L.h-13,13);BKS(Rk,x+w-Rr.w,y,Rr.w,13,Rr.h-13,13)}
   for(let xx=x+L.w-2;xx<x+w-Rr.w+2;xx+=M.w-1)BKS(Mk,xx,T);BKS(Lk,x,T);BKS(Rk,x+w-Rr.w,T);ctx.restore()}
- // alien-green rim light on the roof line and haze swallowing the lower floors
- ctx.globalCompositeOperation='screen';ctx.fillStyle='rgba(90,255,150,.22)';ctx.fillRect(x-swL,T,w+swL+swR,1);ctx.globalCompositeOperation='source-over';
+ ctx.globalCompositeOperation='screen';ctx.fillStyle='rgba(90,255,150,.22)';ctx.fillRect(x,T,w,1);ctx.globalCompositeOperation='source-over';
  const g=ctx.createLinearGradient(0,T+30,0,T+170);g.addColorStop(0,'rgba(20,60,40,0)');g.addColorStop(.5,'rgba(30,70,50,.5)');g.addColorStop(1,'rgba(10,26,20,.96)');ctx.fillStyle=g;ctx.fillRect(x-swL,T+30,w+swL+swR,bot-T-30);
+ ctx.restore()}
+// thick alien fog that swallows the street skyscrapers as the hand climbs the scaffolding
+function climbFog(cam){if(!isFin())return;const amt=clamp((-G.camY-15)/110,0,1)*(G.alienX!=null&&G.x>G.alienX+260?clamp(1-(G.x-G.alienX-260)/300,0,1):1);if(amt<=0)return;
+ ctx.save();ctx.setTransform(S,0,0,S,0,0);
+ const g=ctx.createLinearGradient(0,H*.1,0,H);g.addColorStop(0,`rgba(30,90,60,${(.25*amt).toFixed(3)})`);g.addColorStop(.3,`rgba(40,110,70,${(.78*amt).toFixed(3)})`);g.addColorStop(.6,`rgba(70,40,100,${(.92*amt).toFixed(3)})`);g.addColorStop(1,`rgba(36,18,56,${amt.toFixed(3)})`);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ clouds('#4aff8a',H*.08,80,.12,cam,.7*amt,7);clouds('#a05aff',H*.22,100,.2,cam,.85*amt,-5);clouds('#5aff9a',H*.38,110,.3,cam,.9*amt,9);clouds('#8a3aff',H*.52,120,.42,cam,amt,-8);clouds('#3aff7a',H*.66,110,.55,cam,amt,6);clouds('#a04aff',H*.78,110,.7,cam,amt,-6);
  ctx.restore()}
 // ---------- full-on alien invasion sky ----------
 const CLOUDC=(()=>{const c=document.createElement('canvas');c.width=512;c.height=110;const g=c.getContext('2d');let s=7;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
@@ -2339,7 +2349,9 @@ function render(){
  for(const d of G.decor)if(d.k==='site')drawSite(d,cam);
  for(const r of G.ropes)if(r.st==='crane2')drawCraneBody(r,cam);
  drawHwyRoad(cam);
- for(const p of G.plats)if(p.type!=='wire'&&p.type!=='ramp')drawPlat(p,cam);
+ for(const p of G.plats)if(p.type==='street')drawPlat(p,cam);
+ climbFog(cam);
+ for(const p of G.plats)if(p.type!=='wire'&&p.type!=='ramp'&&p.type!=='street')drawPlat(p,cam);
  wetPass(cam);
  for(const d of G.decor)if(d.k==='wtower')drawWTower(d,cam);
  for(const d of G.decor)if(d.k==='scaf2')drawScaf2(d,cam);
