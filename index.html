@@ -863,11 +863,15 @@ function bagPick(pool){if(!G.bag||!G.bag.length){const b=[...new Set(pool)];for(
 function placeObs0(x,w,y,zone,d){
  const asia=zone==='street'&&isAsia(),fin=zone==='street'&&(isFin()||asia),CH=asia?(rng()<.35?CHAIN.asia:null):fin?CHAIN.fin:CHAIN[zone];
  const gzx=asia&&G.genX>500&&(G.gzN||0)<3?gzSpot(x,w):null;
- if(asia&&w>230&&rng()<.5){const r=rng();if(r<.3){const a=addObs(x+70,y,'anime');const oc=addObs(x+70+a.w+4,y,'octo');oc.prey=a;a.chased=1;coinArc(x+50,x+150,y-60);return}
-  if(r<.55){const b=addObs(x+Math.round(w*.55),y,'budd');b.st2='whole';for(let j=0;j<3;j++)addCoin(b.x+6+j*10,y-b.h-10);return}
-  if(r<.8){const c=addObs(x+Math.round(w*.5),y,'ncart');for(let j=0;j<3;j++)addCoin(c.x+8+j*10,y-c.h-10);return}
-  const sk=addObs(x+Math.round(w*.5),y,'sink');coinArc(sk.x-20,sk.x+sk.w+20,y-40);return}
  if(gzx!=null&&!G.gzAt?.[Math.round(gzx)]){G.gzAt=G.gzAt||{};G.gzAt[Math.round(gzx)]=1;G.gzN=(G.gzN||0)+1;const o=addObs(Math.round(gzx-22),y,'gz');o.st2='wait';o.solid=false;for(let j=0;j<4;j++)addCoin(o.x+6+j*10,y-o.h-10);return}
+ if(asia){// one feature per stretch, drawn from a shuffle bag so the whole cast turns up across the map
+  const n=w>300?2:1;for(let q=0;q<n;q++){const k=asiaBag(),cx0=x+Math.round((q+.5)*w/n+R(-20,20));
+   if(k==='octo'){const a=addObs(cx0-30,y,'anime');const oc=addObs(cx0-30+a.w+4,y,'octo');oc.prey=a;a.chased=1;coinArc(cx0-50,cx0+50,y-60)}
+   else if(k==='budd'){const b=addObs(cx0-15,y,'budd');b.st2='whole';for(let j=0;j<3;j++)addCoin(b.x+6+j*10,y-b.h-10)}
+   else if(k==='ncart'){const c=addObs(cx0-19,y,'ncart');for(let j=0;j<3;j++)addCoin(c.x+8+j*10,y-c.h-10)}
+   else if(k==='sink'){const sk=addObs(cx0-15,y,'sink');coinArc(sk.x-20,sk.x+sk.w+20,y-40)}
+   else{const ob=addObs(cx0-Math.round(OBS[k].w/2),y,k);if(ob.solid)for(let j=0;j*10<ob.w-4;j++)addCoin(ob.x+4+j*10,y-ob.h-10);else coinArc(ob.x-16,ob.x+ob.w+16,y-ob.h-22)}}
+  return}
  if(fin&&!asia&&!G.couple&&w>200){G.couple=1;addObs(x+50,y,'couple');x+=110;w-=110}
  if(CH&&w>=220&&rng()<.35+.25*d){let cx=x+Math.round(R(30,44)),n=0;
   while(n<3){const opts=CH.filter(k=>cx+OBS[k].w<=x+w-26);if(!opts.length)break;let k=opts[Math.floor(rng()*opts.length)];for(let tr=0;tr<6&&k===G.lastK&&opts.length>1;tr++)k=opts[Math.floor(rng()*opts.length)];const ob=addObs(cx,y,k);n++;
@@ -1100,6 +1104,8 @@ const AS2={"budA":{"x":0,"y":0,"w":33,"h":46},"budB":{"x":34,"y":0,"w":32,"h":46
 // ---------- Little Asia kit B: octopus chase, Buddha, noodle cart, sinkhole ----------
 const GZSEG=28;
 function A2(k,dx,dy,dw,dh){const Q=AS2[k];ARTI(ART.asia2,Q.x*AS,Q.y*AS,Q.w*AS,Q.h*AS,dx,dy,dw==null?Q.w:dw,dh==null?Q.h:dh)}
+const ASBAG0=['ncart','octo','sink','ncart','octo','budd','anime','boss','red','bat','swd','nsw','ninja','robot','can','dumpster','bcan','bagpile','ncart','octo','sink'];
+function asiaBag(){if(!G.abag||!G.abag.length){const b=ASBAG0.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[b[i],b[j]]=[b[j],b[i]]}if(G.lastK&&b[b.length-1]===G.lastK)b.unshift(b.pop());G.abag=b}return G.abag.pop()}
 function gzSpot(x,w){if(!ART.ready)return null;const L=hsWorld(x+w+40);for(const b of L)if(b.k===GZSEG&&b.o+b.w/2>x+40&&b.o+b.w/2<x+w-40)return b.o+b.w/2;return null}
 function updAsia2(dt){if(!ART.asia2)return;
  for(const o of G.obs){if(o.dead)continue;const dx=o.x-G.x;
@@ -1126,14 +1132,14 @@ function drawDebris(cam){if(!G.debris||!ART.asia2)return;for(const d of G.debris
 // stamina for running
 function drawStamina(){if(!G||G.demo||state!=='play')return;const s=G.stam==null?1:G.stam,x=12,y=G.power?72:52;ctx.fillStyle='#22141c';ctx.fillRect(x-1,y-1,62,5);const c=G.tired?'#ff4f7b':s<.3?'#ffb020':'#5af0ff';ctx.fillStyle=c;ctx.fillRect(x,y,Math.round(60*s),3);ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(x,y,Math.round(60*s),1);ctx.save();ctx.translate(x,y+10);ctx.scale(.6,.6);txt(G.tired?'OUT OF BREATH!':'RUN',0,0,c);ctx.restore()}
 
-const PW2M={"pJoint":{"x":0,"y":0,"w":47,"h":14},"pBottle":{"x":48,"y":0,"w":8,"h":22},"pBum":{"x":57,"y":0,"w":20,"h":16},"pFart":{"x":78,"y":0,"w":18,"h":14},"pCologne":{"x":97,"y":0,"w":12,"h":20}},INM={"w":460,"h":144};
+const PW2M={"pJoint":{"x":0,"y":0,"w":47,"h":14},"pBottle":{"x":48,"y":0,"w":8,"h":22},"pBum":{"x":57,"y":0,"w":20,"h":16},"pFart":{"x":78,"y":0,"w":18,"h":14},"pCologne":{"x":97,"y":0,"w":12,"h":20}},INM={"w":460,"h":138};
 // ---------- intersection set piece: closes every trip, links endless zones ----------
 function interXs(){const L=[];if(G.mode==='trip'&&isFinite(G.finishX))L.push(G.finishX);if(G.inters)for(const x of G.inters)L.push(x);return L}
 function inInter(x0,x1){for(const c of interXs())if(x1>c-INM.w/2-6&&x0<c+INM.w/2+6)return true;return false}
-function drawInter(cam){if(!ART.inter)return;const M=INM,Y=STREET_Y+3;
+function drawInter(cam){if(!ART.inter)return;const M=INM,Y=STREET_Y+1;
  for(const c of interXs()){const x=Math.round(c-M.w/2-cam);if(x>W+4||x+M.w<-4)continue;const th=G.mode==='trip'?G.trip:(G.interTh||{})[c]||0;
   // sky behind the cross street
-  ctx.save();const top=Math.round(G.camY)-4;const g=ctx.createLinearGradient(0,top,0,Y);g.addColorStop(0,q8(pal.sky1));g.addColorStop(1,q8(pal.sky2));ctx.fillStyle=g;ctx.fillRect(x+40,top,M.w-80,Y-top-20);
+  ctx.save();const top=Math.round(G.camY)-4;const g=ctx.createLinearGradient(0,top,0,Y);g.addColorStop(0,q8(pal.sky1));g.addColorStop(1,q8(pal.sky2));ctx.fillStyle=g;ctx.fillRect(x+70,top,M.w-140,Y-top-30);
   for(let i=0;i<14;i++){ctx.fillStyle=Math.sin(clock*3+i)>.5?'#ffffff':'#b8b8ff';ctx.fillRect(x+50+hash(i*3.1+c)*(M.w-100),top+6+hash(i*7.7)*60,1,1)}
   ctx.imageSmoothingEnabled=true;const iw=ART.inter.width;if(top<Y-M.h){ctx.drawImage(ART.inter,0,0,iw,4*AS,x,top,M.w,Y-M.h-top+2);const hz=ctx.createLinearGradient(0,top,0,Y-M.h+4);hz.addColorStop(0,'rgba(10,6,24,.8)');hz.addColorStop(1,'rgba(10,6,24,0)');ctx.fillStyle=hz;ctx.fillRect(x,top,M.w,Y-M.h-top+4)}ctx.drawImage(ART.inter,x,Y-M.h,M.w,M.h);
   // the level's theme washed over the corner buildings
@@ -1356,7 +1362,7 @@ function update(dt){
  {const pl=G.plats.find(q=>G.x+80>=q.x&&G.x+80<=q.x+(q.fw||q.w)),t=pl?pl.type:'',k2=Math.min(1,dt*.9);G.envSea=(G.envSea||0)+((t==='board'?1:0)-(G.envSea||0))*k2;G.envPark=(G.envPark||0)+((t==='grass'?1:0)-(G.envPark||0))*k2;G.envDock=(G.envDock||0)+((t==='container'?1:0)-(G.envDock||0))*k2;G.envHwy=(G.envHwy||0)+((t==='car'||t==='hwramp'?1:0)-(G.envHwy||0))*k2;G.envCT=(G.envCT||0)+((t==='cstreet'?1:0)-(G.envCT||0))*k2}
  for(const o of G.obs)if(o.dead){o.t+=dt;if(o.st==='run'){o.x-=(o.k==='cat'||OBS[o.k].l2||OBS[o.k].as?260+Math.min(o.t,1)*120:-160)*dt}else if(o.st==='fly'){o.x+=55*dt;o.y-=(50+60*o.t)*dt}else if(o.st==='smash'){o.x+=o.vx*dt;o.vy+=650*dt;o.y+=o.vy*dt;o.rot+=9*dt}}
  // wrist dissolving into pixels
- if(G.wrist&&!G.dead&&Math.random()<dt*(G.grounded?22:34)){const u=Math.random(),cols=['#ff3fd0','#ff6ae0','#ff2bb8','#ffa8ee','#ff52c8'];
+ if(G.wrist&&!G.dead&&Math.random()<dt*(G.grounded?11:17)){const u=Math.random(),cols=['#b46bff','#d8b8ff','#ffffff','#9a5aff','#efe4ff'];
   G.parts.push({x:lerp(G.wrist[0],G.wrist[2],u)+(Math.random()-.5)*3,y:lerp(G.wrist[1],G.wrist[3],u)+(Math.random()-.5)*3,vx:-20-Math.random()*35,vy:-6-Math.random()*12,life:.15+Math.random()*.3,col:cols[Math.floor(Math.random()*cols.length)],g:-20,s:1,glow:1})}
  // run animation
  {const pc=Math.cos(G.phase),pc2=Math.cos(G.phase+PI);if(G.grounded)G.phase+=gdt*G.speed*.13;
@@ -2568,9 +2574,9 @@ function render(){
  }
  if(!HIDEHAND){if(ART.hand)drawHandArt(G.x-cam,G.y,handPose(),cam);else{ctx.save();ctx.shadowColor='rgba(255,186,140,.55)';ctx.shadowBlur=6;handBlit(hc,G.x-cam,G.y);ctx.restore();if(G.power&&G.power.type==='rainbow'&&ART.pw&&!G.dead)holdJoint(cam)}
   // wrist dissolves into drifting pixels, like the hand is phasing out of the window
-  if(G.wrist&&!G.dead&&!G.demo||G&&G.demo&&G.wrist){const [x1,y1,x2,y2]=G.wrist,n=G.grounded?2:3;for(let k=0;k<n;k++){const q=Math.random();G.parts.push({x:lerp(x1,x2,q)-2,y:lerp(y1,y2,q),vx:-30-Math.random()*70,vy:(Math.random()-.5)*40-10,life:.18+Math.random()*.28,col:['#ffbf8a','#f8a374','#ee585e','#d41d85','#fdffb1'][Math.floor(Math.random()*5)],g:-20,s:Math.random()<.35?2:1})}}}
+  if(G.wrist&&!G.dead&&!G.demo||G&&G.demo&&G.wrist){const [x1,y1,x2,y2]=G.wrist,n=(G.grounded?1:1.5)+(Math.random()<.5?0:-1);for(let k=0;k<n;k++){const q=Math.random();G.parts.push({x:lerp(x1,x2,q)-2,y:lerp(y1,y2,q),vx:-30-Math.random()*60,vy:(Math.random()-.5)*30-8,life:.18+Math.random()*.25,col:['#b46bff','#d8b8ff','#ffffff','#9a5aff','#efe4ff'][Math.floor(Math.random()*5)],g:-20,s:1,glow:1})}}}
  if(G.shield>0&&!G.dead){for(let i=0;i<8;i++){const a=clock*6+i*TAU/8;ctx.fillStyle=(i+Math.floor(clock*10))%2?'#ffd23f':'#ffffff';ctx.fillRect(Math.round(G.x-cam+Math.cos(a)*15),Math.round(G.y-16+Math.sin(a)*19),2,2)}}
- for(const p of G.parts){if(p.glow){ctx.globalAlpha=Math.min(1,p.life*4);ctx.fillStyle='rgba(255,60,200,.35)';ctx.fillRect(Math.round(p.x-cam)-1,Math.round(p.y)-1,3,3);ctx.globalAlpha=Math.min(1,p.life*5);ctx.fillStyle=p.col;ctx.fillRect(Math.round(p.x-cam),Math.round(p.y),1,1);ctx.globalAlpha=1;continue}ctx.fillStyle=p.col;ctx.fillRect(Math.round(p.x-cam),Math.round(p.y),p.s,p.s)}
+ for(const p of G.parts){if(p.glow){ctx.globalAlpha=Math.min(1,p.life*4);ctx.fillStyle='rgba(200,170,255,.28)';ctx.fillRect(Math.round(p.x-cam)-1,Math.round(p.y)-1,3,3);ctx.globalAlpha=Math.min(1,p.life*5);ctx.fillStyle=p.col;ctx.fillRect(Math.round(p.x-cam),Math.round(p.y),1,1);ctx.globalAlpha=1;continue}ctx.fillStyle=p.col;ctx.fillRect(Math.round(p.x-cam),Math.round(p.y),p.s,p.s)}
  drawFX(cam);
  for(const p of G.pops){ctx.globalAlpha=Math.min(1,p.life*2);txtB(p.text,Math.round(p.x-cam),Math.round(p.y),p.col,'center');ctx.globalAlpha=1}
  ctx.restore();
@@ -2856,7 +2862,7 @@ const EB=26;let HEXT=null;function buildExt(){if(HEXT||!ART.street)return;HEXT=[
   g.putImageData(id,0,0);const e=document.createElement('canvas');e.width=w;e.height=h;e.getContext('2d').drawImage(c,0,0);HEXT.push(e)}}
 function drawHSBlds(p,x,y){buildExt();const cw=ctx.canvas.width/S,L=hsList(p,-x+cw+10),fw=p.fw||p.w,a=Math.max(x,-4),bw=Math.min(x+fw,cw+4)-a;
  const D=q8(pal.mid.map(v=>v*.35));{const g=ctx.createLinearGradient(0,y-90,0,y-30);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,D);ctx.fillStyle=g;ctx.fillRect(a,y-90,bw,90)}
- for(let i=0;i<L.length;i++){const b=L[i],bx=x+b.o;if(bx>cw+4||bx+b.w<-4)continue;if(inInter(p.x+b.o,p.x+b.o+b.w))continue;
+ for(let i=0;i<L.length;i++){const b=L[i],bx=x+b.o;if(bx>cw+4||bx+b.w<-4)continue;if(inInter(p.x+b.o+b.w*.35,p.x+b.o+b.w*.65)&&Math.abs(p.x+b.o+b.w/2-interXs().find(c=>Math.abs(c-(p.x+b.o))<300))<INM.w/2-70)continue;
   if(b.k<0){// alley between buildings: recessed back wall with the two side walls closing in
    const l=L[i-1],r=L[i+1],ah=Math.min(l&&l.k>=0?HSEGS[l.k].h:120,r&&r.k>=0?HSEGS[r.k].h:120)-4;ctx.fillStyle=q8(pal.mid.map(v=>v*.18));ctx.fillRect(bx,y-ah,b.w,ah);
    const half=Math.ceil(b.w/2);
